@@ -1,0 +1,275 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              Int            @id @default(autoincrement())
+  uid             String         @unique
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @default(now()) @updatedAt
+  username        String         @unique
+  password        String
+  lastLogin       DateTime?
+  email           String         @unique
+  avatarUrl       String
+  headImg         String?
+  point           Int            @default(0)
+  postCount       Int            @default(0)
+  commentCount    Int            @default(0)
+  role            UserRole       @default(USER)
+  level           Int            @default(1)
+  status          UserStatus     @default(NORMAL)
+  bannedEnd       DateTime?
+  comments        Comment[]
+  commentDisLike  DisLike[]
+  fav             Fav[]
+  commentLike     Like[]
+  SendMessage     Message[]      @relation("sendMessage")
+  ReceiveMessage  Message[]      @relation("receiveMessage")
+  PointHistory    PointHistory[]
+  LastComment     Post[]         @relation("lastComment")
+  posts           Post[]
+  PostSupport     PostSupport[]
+  css             String?
+  js              String?
+  signature       String?
+  lastActive      DateTime?
+  titles          Title[]
+  invitedBy       User?          @relation("UserInvitations", fields: [invitedById], references: [id])
+  invitedById     Int?
+  invitedUsers    User[]         @relation("UserInvitations")
+  sentInvites     inviteCode[]   @relation("SentInvites")
+  receivedInvites inviteCode[]   @relation("ReceivedInvites")
+  tgChatID        String?
+  secretKey       String?
+}
+
+model Title {
+  id     Int     @id @default(autoincrement())
+  title  String  @unique
+  count  Int     @default(0)
+  style  String
+  status Boolean @default(true)
+  users  User[]
+}
+
+model Post {
+  id              Int            @id @default(autoincrement())
+  pid             String         @unique
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @default(now()) @updatedAt
+  title           String
+  content         String
+  uid             String
+  viewCount       Int            @default(0)
+  replyCount      Int            @default(0)
+  likeCount       Int            @default(0)
+  disLikeCount    Int            @default(0)
+  minLevel        Int            @default(1)
+  tagId           Int
+  readRole        Int            @default(0)
+  pinned          Boolean        @default(false)
+  point           Float          @default(0.0)
+  lastCommentTime DateTime       @default(now())
+  lastCommentUid  String?
+  comments        Comment[]
+  commentDisLike  DisLike[]
+  fav             Fav[]
+  commentLike     Like[]
+  PointHistory    PointHistory[]
+  lastCommentUser User?          @relation("lastComment", fields: [lastCommentUid], references: [uid])
+  tag             Tag            @relation(fields: [tagId], references: [id])
+  author          User           @relation(fields: [uid], references: [uid])
+  PostSupport     PostSupport[]
+  hide            Boolean        @default(false)
+  hideContent     String?
+  payPoint        Int          @default(0) 
+  payUser         pay[]          
+}
+
+model PostSupport {
+  id        Int      @id @default(autoincrement())
+  uid       String
+  pid       String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  post      Post     @relation(fields: [pid], references: [pid])
+  user      User     @relation(fields: [uid], references: [uid])
+
+  @@unique([uid, pid])
+}
+
+model Tag {
+  id     Int     @id @default(autoincrement())
+  name   String  @unique
+  enName String? @unique
+  desc   String
+  count  Int     @default(0)
+  hot    Boolean @default(false)
+  posts  Post[]
+}
+
+model Comment {
+  id           Int            @id @default(autoincrement())
+  cid          String         @unique
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @default(now()) @updatedAt
+  uid          String
+  pid          String
+  mentioned    String[]
+  content      String
+  floor        Int            @default(1)
+  post         Post           @relation(fields: [pid], references: [pid])
+  author       User           @relation(fields: [uid], references: [uid])
+  dislikes     DisLike[]
+  likes        Like[]
+  PointHistory PointHistory[]
+}
+
+model Fav {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  pid       String
+  post      Post     @relation(fields: [pid], references: [pid])
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Like {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  pid       String
+  cid       String
+  uid       String
+  comment   Comment  @relation(fields: [cid], references: [cid])
+  post      Post     @relation(fields: [pid], references: [pid])
+  user      User     @relation(fields: [uid], references: [uid])
+
+  @@unique([uid, cid])
+}
+
+model DisLike {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  pid       String
+  cid       String
+  uid       String
+  comment   Comment  @relation(fields: [cid], references: [cid])
+  post      Post     @relation(fields: [pid], references: [pid])
+  user      User     @relation(fields: [uid], references: [uid])
+
+  @@unique([uid, cid])
+}
+
+model SysConfig {
+  id      Int  @id @default(autoincrement())
+  content Json
+}
+
+model PointHistory {
+  id        Int         @id @default(autoincrement())
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @default(now()) @updatedAt
+  reason    PointReason
+  uid       String
+  pid       String?
+  cid       String?
+  point     Int
+  comment   Comment?    @relation(fields: [cid], references: [cid])
+  post      Post?       @relation(fields: [pid], references: [pid])
+  user      User        @relation(fields: [uid], references: [uid])
+  remark    String?
+}
+
+model Message {
+  id         Int          @id @default(autoincrement())
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @default(now()) @updatedAt
+  read       Boolean      @default(false)
+  fromUid    String?
+  toUid      String
+  content    String
+  type       MessageType?
+  relationId String?
+  from       User?        @relation("sendMessage", fields: [fromUid], references: [uid])
+  to         User         @relation("receiveMessage", fields: [toUid], references: [uid])
+}
+
+model inviteCode {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  endAt     DateTime @default(now())
+  fromUid   String
+  toUid     String?
+  content   String
+  fromUser  User     @relation("SentInvites", fields: [fromUid], references: [uid])
+  toUser    User?    @relation("ReceivedInvites", fields: [toUid], references: [uid])
+}
+
+model pay {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  pid       String
+  uid       String
+  point     Int
+  post      Post     @relation(fields: [pid], references: [pid])
+}
+
+enum UserStatus {
+  NORMAL
+  BANNED
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+enum PointReason {
+  POST
+  COMMENT
+  LIKE
+  DISLIKE
+  SIGNIN
+  PUNISH
+  INVITE
+  SEND
+  PUTIN
+  INCOME
+}
+
+enum MessageType {
+  MENTIONED
+  COMMENT
+  SIGNIN
+  LIKE
+  DISLIKE
+  PRIVATE_MSG
+}
+
+enum EmailReason {
+  REGISTER
+  RESET_PASSWORD
+  CHANGE_EMAIL
+}
+
+model EmailCode {
+  id          Int         @id @default(autoincrement())
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @default(now()) @updatedAt
+  key         String
+  code        String
+  validAt     DateTime
+  used        Boolean     @default(false)
+  reason      EmailReason
+  targetEmail String
+}

@@ -1,0 +1,35 @@
+{
+  "name": "discussion-workers",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "NUXT_TELEMETRY_DISABLED=1 node node_modules/nuxt/bin/nuxt.mjs generate",
+    "build:web": "NUXT_TELEMETRY_DISABLED=1 node node_modules/nuxt/bin/nuxt.mjs generate",
+    "cf:preview": "NUXT_TELEMETRY_DISABLED=1 node node_modules/nuxt/bin/nuxt.mjs generate && node node_modules/wrangler/bin/wrangler.js dev",
+    "cf:deploy": "NUXT_TELEMETRY_DISABLED=1 node node_modules/nuxt/bin/nuxt.mjs generate && node node_modules/wrangler/bin/wrangler.js deploy",
+    "d1:migrate:local": "node node_modules/wrangler/bin/wrangler.js d1 migrations apply discussion --local",
+    "d1:migrate:remote": "node node_modules/wrangler/bin/wrangler.js d1 migrations apply discussion --remote",
+    "dev": "NUXT_TELEMETRY_DISABLED=1 node node_modules/nuxt/bin/nuxt.mjs dev",
+    "generate": "NUXT_TELEMETRY_DISABLED=1 node node_modules/nuxt/bin/nuxt.mjs generate",
+    "preview": "NUXT_TELEMETRY_DISABLED=1 node node_modules/nuxt/bin/nuxt.mjs preview",
+    "postinstall": "NUXT_TELEMETRY_DISABLED=1 node node_modules/nuxt/bin/nuxt.mjs prepare"
+  },
+  "dependencies": {
+    "@iconify-json/carbon": "^1.1.36",
+    "@nuxt/ui": "^2.17.0",
+    "@vueuse/core": "^10.11.0",
+    "@vueuse/nuxt": "^10.11.0",
+    "dayjs": "^1.11.11",
+    "md-editor-v3": "^4.17.3",
+    "nuxt": "^3.12.3",
+    "tailwindcss": "^3.4.5",
+    "vue": "^3.4.31",
+    "vue-router": "^4.4.0",
+    "vue-sonner": "^1.1.3",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.3",
+    "wrangler": "^4.7.0"
+  }
+}

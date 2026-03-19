@@ -1,0 +1,31 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "discussion-workers",
+  "main": "worker/src/index.ts",
+  "compatibility_date": "2025-04-01",
+  "observability": {
+    "enabled": true
+  },
+  "assets": {
+    "directory": ".output/public",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "bbs",
+      // 本地预览可先用占位 UUID，远端部署前替换成 wrangler d1 create 返回的真实 database_id
+      "database_id": "8cfdeb20-c0b5-448e-b228-ff2cf5ffbb69",
+      "migrations_dir": "worker/migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "IMAGES_BUCKET",
+      // 部署前替换成你自己的 R2 bucket 名称
+      "bucket_name": "bbs",
+      "preview_bucket_name": "bbs"
+    }
+  ]
+}
