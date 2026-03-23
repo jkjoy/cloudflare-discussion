@@ -44,7 +44,12 @@ watch(() => route.fullPath, () => {
 const { copy } = useClipboard({})
 
 function copyTgCommand() {
-  copy(`${userinfo.username}#${userinfo.secretKey}`)
+  const secretKey = String(userinfo.secretKey || '').trim()
+  if (!secretKey) {
+    toast.error('当前账户还没有可用的绑定密钥，请刷新页面后重试')
+    return
+  }
+  copy(`/bind ${userinfo.username}#${secretKey}`)
   toast.success('复制成功,请发给机器人')
 }
 
@@ -94,7 +99,7 @@ watch(() => route.fullPath, (fullPath: string) => {
             关注<a target="_blank" class="text-green-500" :href="`https://t.me/${sysconfig.notify.tgBotName}`">TG机器人</a>可以实时收到消息通知
           </div>
           <div class="text-xs text-gray-400">
-            <span class="text-green-500 cursor-pointer" @click="copyTgCommand">点我复制指令</span>,然后发给上面的机器人即可绑定
+            <span class="text-green-500 cursor-pointer" @click="copyTgCommand">点我复制绑定指令</span>,然后发给上面的机器人即可绑定
           </div>
         </div>
       </div>

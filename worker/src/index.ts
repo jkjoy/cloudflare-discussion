@@ -1761,6 +1761,10 @@ async function handleMemberDetail(env: Env, currentUser: CurrentUser | null, use
     return json({})
   }
 
+  if (currentUser?.uid === row.uid) {
+    await ensureUserSecretKey(env, row)
+  }
+
   const user = await buildUserSummary(env, row, currentUser?.uid === row.uid)
   const privateMsgCount = await queryCount(env, 'SELECT COUNT(*) AS count FROM messages WHERE type = ? AND to_uid = ?', ['PRIVATE_MSG', row.uid])
   let unreadMessageCount = 0
@@ -2054,24 +2058,21 @@ async function handleTelegramWebhook(request: Request, env: Env) {
   }
 
   const body = await readBody(request)
-  const text = String(body?.message?.text || '').trim()
-  const chatId = body?.message?.chat?.id ? String(body.message.chat.id) : ''
+  const { text, chatId } = getTelegramUpdateMessage(body)
 
   if (!text || !chatId) {
     return new Response('OK')
   }
 
-  const parts = text.split('#')
-  if (parts.length !== 2) {
-    await sendTgMessage(config, chatId, '格式不正确，请发送 用户名#密钥')
+  const binding = parseTelegramBindingCommand(text)
+  if (!binding) {
+    await sendTgMessage(config, chatId, '格式不正确，请发送 /bind 用户名#密钥')
     return new Response('OK')
   }
 
-  const username = parts[0].trim()
-  const secretKey = parts[1].trim()
-  const user = await first(env, 'SELECT uid FROM users WHERE username = ? AND secret_key = ?', [username, secretKey])
+  const user = await first(env, 'SELECT uid FROM users WHERE username = ? AND secret_key = ?', [binding.username, binding.secretKey])
   if (!user) {
-    await sendTgMessage(config, chatId, `不存在 ${username} 这个用户，或密钥不正确`)
+    await sendTgMessage(config, chatId, `不存在 ${binding.username} 这个用户，或密钥不正确`)
     return new Response('OK')
   }
 
@@ -2079,6 +2080,28 @@ async function handleTelegramWebhook(request: Request, env: Env) {
   await sendTgMessage(config, chatId, '绑定成功，后续站内消息和私信会通过 Telegram 通知你。')
 
   return new Response('OK')
+}
+
+function getTelegramUpdateMessage(body: any) {
+  const message = body?.message ?? body?.edited_message ?? body?.channel_post ?? body?.edited_channel_post
+  return {
+    text: String(message?.text || '').trim(),
+    chatId: message?.chat?.id ? String(message.chat.id) : '',
+  }
+}
+
+function parseTelegramBindingCommand(text: string) {
+  const normalized = text.replace(/\uFF03/g, '#').trim()
+  const commandStripped = normalized.replace(/^\/(?:start|bind)(?:@\w+)?(?:\s+|$)/i, '').trim()
+  const candidate = commandStripped || normalized
+  const match = candidate.match(/^([^#\s]+)\s*#\s*(\S+)$/)
+  if (!match) {
+    return null
+  }
+  return {
+    username: match[1].trim(),
+    secretKey: match[2].trim(),
+  }
 }
 
 async function buildProfile(env: Env, currentUser: CurrentUser) {
@@ -2303,6 +2326,7 @@ async function getCurrentUser(request: Request, env: Env) {
     if (!row) {
       return null
     }
+    await ensureUserSecretKey(env, row)
     if (row.status === 'BANNED' && row.banned_end && String(row.banned_end) < nowIso()) {
       await run(env, 'UPDATE users SET status = ?, banned_end = NULL, updated_at = ? WHERE uid = ?', ['NORMAL', nowIso(), row.uid])
       row.status = 'NORMAL'
@@ -2361,6 +2385,20 @@ async function saveSysConfig(env: Env, config: any) {
   else {
     await run(env, 'INSERT INTO sys_config (id, content) VALUES (1, ?)', [JSON.stringify(merged)])
   }
+}
+
+async function ensureUserSecretKey(env: Env, row: any) {
+  const secretKey = String(row?.secret_key || '').trim()
+  if (secretKey) {
+    return secretKey
+  }
+
+  const nextSecretKey = randomId('')
+  const updatedAt = nowIso()
+  await run(env, 'UPDATE users SET secret_key = ?, updated_at = ? WHERE uid = ?', [nextSecretKey, updatedAt, row.uid])
+  row.secret_key = nextSecretKey
+  row.updated_at = updatedAt
+  return nextSecretKey
 }
 
 async function getUserTitles(env: Env, userId: number) {

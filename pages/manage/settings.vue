@@ -93,63 +93,30 @@ function randomString(e: number) {
   return n
 }
 
-function normalizeTelegramWebsiteUrl(value: string) {
-  const normalized = value.trim().replace(/\/+$/, '')
-  if (!normalized) {
-    throw new Error('请先填写论坛地址')
-  }
-
-  const url = new URL(normalized)
-  if (url.protocol !== 'https:') {
-    throw new Error('Telegram Webhook 只支持 HTTPS 公网地址')
-  }
-
-  return url.toString().replace(/\/+$/, '')
+function normalizeWebsiteUrl(url: string) {
+  return url.trim().replace(/\/+$/, '')
 }
 
-function buildTelegramWebhookSetupUrl() {
-  if (!state.notify.tgBotToken.trim()) {
-    throw new Error('请先填写 Bot Token')
+function ensureTelegramSecret() {
+  if (state.notify.tgBotEnabled && !state.notify.tgSecret) {
+    state.notify.tgSecret = randomString(32)
   }
-
-  const websiteUrl = normalizeTelegramWebsiteUrl(state.websiteUrl)
-  const webhookUrl = new URL('/api/tg', `${websiteUrl}/`)
-  const setupUrl = new URL(`https://api.telegram.org/bot${state.notify.tgBotToken.trim()}/setWebhook`)
-  setupUrl.searchParams.set('secret_token', state.notify.tgSecret)
-  setupUrl.searchParams.set('url', webhookUrl.toString())
-  return setupUrl.toString()
 }
 
-async function saveSettings() {
+async function persistSettings(options: { reload?: boolean, successMessage?: string } = {}) {
+  const { reload = true, successMessage = '保存成功' } = options
   if (state.turnstile.enable && (!state.turnstile.siteKey || !state.turnstile.secretKey)) {
     toast.error('启用了 Turnstile，请填写 Site Key 和 Secret Key')
-    return
+    return false
   }
 
   if (state.regWithEmailCodeVerify && (!state.email.apiKey || !state.email.from)) {
     toast.error('启用了邮件验证码，请填写 Resend API Key 和发件邮箱')
-    return
+    return false
   }
 
-  if (state.notify.tgBotEnabled) {
-    if (!state.notify.tgBotToken.trim()) {
-      toast.error('启用了 Telegram 机器人，请填写 Bot Token')
-      return
-    }
-
-    try {
-      state.websiteUrl = normalizeTelegramWebsiteUrl(state.websiteUrl)
-    }
-    catch (error) {
-      toast.error(error instanceof Error ? error.message : '论坛地址格式不正确')
-      return
-    }
-  }
-
-  if (state.notify.tgBotEnabled && !state.notify.tgSecret) {
-    state.notify.tgSecret = randomString(32)
-  }
-
+  ensureTelegramSecret()
+  state.websiteUrl = normalizeWebsiteUrl(state.websiteUrl)
   state.upload = {
     imgStrategy: 'r2',
     attachmentStrategy: 'r2',
@@ -159,8 +126,18 @@ async function saveSettings() {
     method: 'POST',
     body: JSON.stringify(state),
   })
-  toast.success('保存成功')
-  window.location.reload()
+
+  if (successMessage) {
+    toast.success(successMessage)
+  }
+  if (reload) {
+    window.location.reload()
+  }
+  return true
+}
+
+async function saveSettings() {
+  await persistSettings()
 }
 
 const postUrlFormatOptions = [{ value: 'UUID', label: 'UUID' }, { value: 'Number', label: '数字' }, { value: 'Date', label: '日期' }]
@@ -207,17 +184,46 @@ async function testEmail() {
 const { copy } = useCopyToClipboard()
 
 async function copyWebhook() {
-  try {
-    if (state.notify.tgBotEnabled && !state.notify.tgSecret) {
-      state.notify.tgSecret = randomString(32)
-    }
+  if (!state.notify.tgBotEnabled) {
+    toast.error('请先启用 Telegram 机器人')
+    return
+  }
+  if (!state.notify.tgBotToken) {
+    toast.error('请先填写 Bot Token')
+    return
+  }
 
-    copy(buildTelegramWebhookSetupUrl())
-    toast.success('复制成功')
+  state.websiteUrl = normalizeWebsiteUrl(state.websiteUrl)
+  if (!state.websiteUrl) {
+    toast.error('请先填写论坛地址')
+    return
   }
-  catch (error) {
-    toast.error(error instanceof Error ? error.message : 'Webhook 地址生成失败')
+
+  let websiteUrl: URL
+  try {
+    websiteUrl = new URL(state.websiteUrl)
   }
+  catch {
+    toast.error('论坛地址必须是完整的 URL')
+    return
+  }
+
+  if (websiteUrl.protocol !== 'https:') {
+    toast.error('Telegram Webhook 需要 https 地址')
+    return
+  }
+
+  const saved = await persistSettings({ reload: false, successMessage: '' })
+  if (!saved) {
+    return
+  }
+
+  const webhookUrl = new URL('/api/tg', `${websiteUrl.toString().replace(/\/+$/, '')}/`)
+  const apiUrl = new URL(`https://api.telegram.org/bot${state.notify.tgBotToken}/setwebhook`)
+  apiUrl.searchParams.set('secret_token', state.notify.tgSecret)
+  apiUrl.searchParams.set('url', webhookUrl.toString())
+  copy(apiUrl.toString())
+  toast.success('已保存配置并复制 WebHook 地址')
 }
 </script>
 

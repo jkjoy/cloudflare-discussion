@@ -19,7 +19,7 @@
 ### 1. 创建 D1 数据库
 
 ```bash
-npx wrangler d1 create discussion
+npx wrangler d1 create bbs
 ```
 
 把命令返回的 `database_id` 填入 [wrangler.jsonc](./wrangler.jsonc) 的 `d1_databases[0].database_id`。
@@ -54,6 +54,8 @@ npm install
 ```bash
 npm run d1:migrate:local
 ```
+
+这里的脚本会直接对 `wrangler.jsonc` 里声明的 `DB` 绑定执行 migration，不需要再手动改数据库名。
 
 ### 6. 本地预览完整站点
 
