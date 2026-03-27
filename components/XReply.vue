@@ -2,6 +2,7 @@
 import { useColorMode } from '@vueuse/core'
 import type { ToolbarNames } from 'md-editor-v3'
 import { MdEditor } from 'md-editor-v3'
+import 'md-editor-v3/lib/style.css'
 import { toast } from 'vue-sonner'
 import type { SysConfigDTO } from '~/types'
 import type { CommentQuotedPayload } from '~/utils/eventbus'

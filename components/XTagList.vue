@@ -5,13 +5,16 @@ defineProps<{
   selected?: string
 }>()
 
-const tagRes = await useFetch('/api/go/list?hot=true', {
+const { data: tagData, pending: tagPending } = useLazyFetch<{ tags: TagDTO[] }>('/api/go/list?hot=true', {
   method: 'GET',
   key: 'hotTagLists',
+  default: () => ({
+    tags: [],
+  }),
 })
 
 const tagList = computed(() => {
-  return tagRes.data.value?.tags as any as TagDTO[]
+  return tagData.value?.tags || []
 })
 </script>
 
@@ -26,7 +29,7 @@ const tagList = computed(() => {
           {{ tag.name }}
         </NuxtLink>
       </UBadge>
-      <div v-if="tagList.length === 0" class="text-sm">
+      <div v-if="!tagPending && tagList.length === 0" class="text-sm">
         暂无标签,请去后台添加
       </div>
     </div>

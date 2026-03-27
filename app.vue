@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import 'md-editor-v3/lib/style.css'
 import type { SysConfigDTO } from './types'
 
 const global = useGlobalConfig()

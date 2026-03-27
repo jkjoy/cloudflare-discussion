@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import type { ToolbarNames } from 'md-editor-v3'
 import { MdEditor } from 'md-editor-v3'
+import 'md-editor-v3/lib/style.css'
 import { toast } from 'vue-sonner'
 import { useColorMode } from '@vueuse/core'
 

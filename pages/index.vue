@@ -1,6 +1,11 @@
 <script lang="ts" setup>
 import type { PostDTO } from '~/types'
 
+interface PostListResponse {
+  posts: PostDTO[]
+  total: number
+}
+
 const route = useRoute()
 function buildPostListUrl(page: number, key?: string) {
   const params = new URLSearchParams({
@@ -21,8 +26,12 @@ const state = reactive({
 })
 
 state.page = Number.parseInt(route.query.page as any as string) || 1
-const { data } = await useFetch(buildPostListUrl(state.page, state.key as string), {
+const { data, pending } = useLazyFetch<PostListResponse>(buildPostListUrl(state.page, state.key as string), {
   method: 'GET',
+  default: () => ({
+    posts: [],
+    total: 0,
+  }),
 })
 
 watch(() => route.fullPath, async () => {
@@ -35,7 +44,7 @@ watch(() => route.fullPath, async () => {
 })
 
 const postList = computed(() => {
-  return data.value?.posts as any as PostDTO[]
+  return data.value?.posts || []
 })
 
 const totalPosts = computed(() => {
@@ -66,7 +75,13 @@ useHead({
     </template>
     <div class="flex flex-col divide-y divide-gray-300 dark:divide-slate-700">
       <XPost v-for="post in postList" :key="post.pid" :show-avatar="true" v-bind="post" />
-      <div v-if="postList.length === 0" class="p-4 text-sm">
+      <div v-if="pending && postList.length === 0" class="space-y-3 p-4">
+        <div v-for="index in 6" :key="index" class="animate-pulse space-y-2">
+          <div class="h-4 w-3/5 rounded bg-gray-200 dark:bg-slate-700" />
+          <div class="h-3 w-2/5 rounded bg-gray-100 dark:bg-slate-800" />
+        </div>
+      </div>
+      <div v-else-if="postList.length === 0" class="p-4 text-sm">
         暂无帖子,注册登录发言吧
       </div>
     </div>

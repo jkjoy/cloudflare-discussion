@@ -1,12 +1,11 @@
 <script lang="ts" setup>
-import { MdPreview } from 'md-editor-v3'
 import { useWindowScroll } from '@vueuse/core'
 import { toast } from 'vue-sonner'
 import XTipModal from './XTipModal.vue'
 import type { CommentDTO, UserDTO } from '~/types'
 
 const props = defineProps<CommentDTO>()
-const userinfo = useState<UserDTO | undefined>('userinfo')
+const userinfo = useState<UserDTO | undefined>('userinfo', () => ({} as UserDTO))
 const config = useRuntimeConfig()
 const token = useCookie(config.public.tokenKey)
 const { y } = useWindowScroll({ behavior: 'auto' })
@@ -140,7 +139,7 @@ themeChanged.on((val) => {
         </div>
       </div>
       <div class="text-gray-600  text-sm  hover:text-primary/80">
-        <MdPreview :model-value="content" :editor-id="cid" no-mermaid no-katex />
+        <XMarkdownPreview :model-value="content" :editor-id="cid" />
       </div>
     </div>
 

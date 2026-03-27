@@ -1,9 +1,8 @@
 <script lang="ts" setup>
-import { MdPreview } from 'md-editor-v3'
 import { toast } from 'vue-sonner'
 import type { PostDTO, UserDTO } from '~/types'
 
-const userinfo = useState<UserDTO>('userinfo')
+const userinfo = useState<UserDTO>('userinfo', () => ({} as UserDTO))
 const config = useRuntimeConfig()
 const token = useCookie(config.public.tokenKey)
 const route = useRoute()
@@ -91,12 +90,6 @@ useHead({
   ],
 })
 
-const color = useColorMode()
-const theme = ref<'light' | 'dark'>(color.value === 'dark' ? 'dark' : 'light')
-themeChanged.on((val) => {
-  theme.value = val === 'dark' ? 'dark' : 'light'
-})
-
 const details = ref('')
 async function payHide() {
   const res = await $fetch(`/api/post/pay`, {
@@ -128,10 +121,10 @@ async function payHide() {
       <XPost :show-avatar="true" v-bind="post" @support="doSupport" />
     </div>
     <div class="px-4 pt-2 leading-5 border-t space-y-2 dark:border-slate-700">
-      <MdPreview v-model="post.content" :editor-id="`pv-${post.pid}`" no-mermaid no-katex />
+      <XMarkdownPreview :model-value="post.content" :editor-id="`pv-${post.pid}`" />
     </div>
     <div v-if="post.hide" class="px-4 pt-2 mt-2 leading-5 border-t space-y-2 dark:border-slate-700">
-      <MdPreview v-if="details" v-model="details" :editor-id="`pv-${post.pid}`" no-mermaid no-katex />
+      <XMarkdownPreview v-if="details" :model-value="details" :editor-id="`pv-${post.pid}`" />
       <div v-else>
         <span class="text-xs">本贴包含隐藏内容，需要{{ post.payPoint }}分 </span>
         <UButton :label="post.canViewHidden ? '查看' : '购买'" @click="payHide" />

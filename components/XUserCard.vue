@@ -3,7 +3,7 @@ import { toast } from 'vue-sonner'
 import { useDebounceFn } from '@vueuse/core'
 import type { UserDTO } from '~/types'
 
-const userinfo = useState<UserDTO>('userinfo')
+const userinfo = useState<UserDTO>('userinfo', () => ({} as UserDTO))
 
 const debouncedFn = useDebounceFn(async () => {
   const res = await $fetch('/api/member/signIn', { method: 'POST' })

@@ -2,7 +2,7 @@
 import type { UserDTO } from '~/types'
 
 const route = useRoute()
-const currentUser = useState<UserDTO>('userinfo')
+const currentUser = useState<UserDTO>('userinfo', () => ({} as UserDTO))
 const username = route.params.username as string
 async function sendMsgSuccess() {
   const owner = currentUser.value?.username || username

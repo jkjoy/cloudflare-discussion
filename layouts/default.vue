@@ -1,10 +1,9 @@
 <script lang="ts" setup>
 import { useTitle } from '@vueuse/core'
-import { MdPreview } from 'md-editor-v3'
 import { Toaster } from 'vue-sonner'
 import type { SysConfigDTO, TagDTO, UserDTO } from '~/types'
 
-const userinfo = useState<UserDTO>('userinfo')
+const userinfo = useState<UserDTO>('userinfo', () => ({} as UserDTO))
 const keyWords = ref('')
 const config = useRuntimeConfig()
 const token = useCookie(config.public.tokenKey)
@@ -62,7 +61,7 @@ watch(token, async () => {
   }
 })
 
-await loadProfile()
+void loadProfile()
 
 if (sysconfig.css) {
   useHead({
@@ -96,26 +95,30 @@ if (sysconfig.favicon) {
   })
 }
 
-if (userinfo.value.css) {
-  useHead({
-    style: [
-      {
-        innerHTML: userinfo.value.css,
-      },
-    ],
-  })
-}
+useHead(() => {
+  const userCss = userinfo.value?.css
+  const userJs = userinfo.value?.js
 
-if (userinfo.value.js) {
-  useHead({
-    script: [
-      {
-        type: 'text/javascript',
-        innerHTML: userinfo.value.js,
-      },
-    ],
-  })
-}
+  return {
+    style: userCss
+      ? [
+          {
+            key: 'user-custom-css',
+            innerHTML: userCss,
+          },
+        ]
+      : [],
+    script: userJs
+      ? [
+          {
+            key: 'user-custom-js',
+            type: 'text/javascript',
+            innerHTML: userJs,
+          },
+        ]
+      : [],
+  }
+})
 
 if (sysconfig.turnstile && sysconfig.turnstile.enable) {
   useHead({
@@ -205,10 +208,7 @@ function GoogleSearch() {
             </div>
           </template>
           <div class="text-sm">
-            <MdPreview
-              :model-value="sysconfig.websiteAnnouncement" editor-id="websiteAnnouncement" no-mermaid no-katex
-              no-highlight
-            />
+            <LazyXMarkdownPreview :model-value="sysconfig.websiteAnnouncement" editor-id="websiteAnnouncement" no-highlight />
           </div>
         </UCard>
         <UCard
@@ -224,7 +224,7 @@ function GoogleSearch() {
             {{ tag.desc }}
           </div>
         </UCard>
-        <XHotUser />
+        <LazyXHotUser />
       </div>
     </USlideover>
 
@@ -282,13 +282,10 @@ function GoogleSearch() {
             </div>
           </template>
           <div class="text-sm">
-            <MdPreview
-              :model-value="sysconfig.websiteAnnouncement" editor-id="websiteAnnouncement" no-mermaid no-katex
-              no-highlight
-            />
+            <LazyXMarkdownPreview :model-value="sysconfig.websiteAnnouncement" editor-id="websiteAnnouncement" no-highlight />
           </div>
         </UCard>
-        <XHotUser />
+        <LazyXHotUser />
       </div>
     </div>
     <XFooter :version="version" />

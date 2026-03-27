@@ -8,7 +8,7 @@ const props = defineProps({
 
 const container = ref<HTMLElement | null>(null)
 
-const currentUser = useState<UserDTO>('userinfo')
+const currentUser = useState<UserDTO>('userinfo', () => ({} as UserDTO))
 const { y } = useScroll(container)
 
 const res = await useFetch('/api/member/privateMsgList', {

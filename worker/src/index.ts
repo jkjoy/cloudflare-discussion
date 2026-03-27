@@ -1546,14 +1546,14 @@ async function buildConfigResponse(env: Env) {
   return json({
     success: true,
     data: getPublicSysConfig(config),
-    version: env.APP_VERSION || 'workers-d1',
+    version: '1.0',
   })
 }
 
 async function buildVersionResponse(env: Env) {
   return json({
     success: true,
-    version: env.APP_VERSION || 'workers-d1',
+    version: '1.0',
   })
 }
 

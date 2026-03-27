@@ -1,5 +1,4 @@
 <script lang="ts" setup>
-import { MdPreview } from 'md-editor-v3'
 import type { CommentDTO } from '~/types'
 
 defineProps<CommentDTO>()
@@ -24,7 +23,7 @@ defineProps<CommentDTO>()
         </div>
       </div>
       <div class="text-gray-600  text-sm  hover:text-primary/80">
-        <MdPreview :model-value="content" :editor-id="cid" no-mermaid no-katex />
+        <XMarkdownPreview :model-value="content" :editor-id="cid" />
       </div>
     </div>
   </div>

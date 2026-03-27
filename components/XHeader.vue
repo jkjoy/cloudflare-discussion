@@ -14,7 +14,7 @@ const route = useRoute()
 const mode = useColorMode()
 const config = useRuntimeConfig()
 const token = useCookie(config.public.tokenKey)
-const userinfo = useState<UserDTO | undefined>('userinfo')
+const userinfo = useState<UserDTO | undefined>('userinfo', () => ({} as UserDTO))
 async function logout() {
   token.value = ''
   userinfo.value = {} as UserDTO

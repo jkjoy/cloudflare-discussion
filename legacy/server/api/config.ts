@@ -8,6 +8,6 @@ export default defineEventHandler(async (_) => {
   return {
     success: true,
     data: config?.content,
-    version: runtimeConfig.public.appVersion || 'cloudflare',
+    version: runtimeConfig.public.appVersion || '1.0',
   }
 })

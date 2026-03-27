@@ -1,5 +1,17 @@
 <script lang="ts" setup>
-const { data: hotUsers } = await useFetch('/api/member/hot', { method: 'GET', key: 'hotUsers' })
+interface HotUserDTO {
+  uid: string
+  username: string
+  avatarUrl?: string
+  headImg?: string
+  points: number
+}
+
+const { data: hotUsers } = useLazyFetch<HotUserDTO[]>('/api/member/hot', {
+  method: 'GET',
+  key: 'hotUsers',
+  default: () => [],
+})
 </script>
 
 <template>

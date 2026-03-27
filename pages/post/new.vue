@@ -11,7 +11,7 @@ import { getLength } from '~/utils'
 
 type Schema = z.output<typeof createPostSchema>
 
-const userinfo = useState<UserDTO>('userinfo')
+const userinfo = useState<UserDTO>('userinfo', () => ({} as UserDTO))
 const global = useGlobalConfig()
 const sysconfig = global.value?.sysConfig as SysConfigDTO
 onMounted(() => {

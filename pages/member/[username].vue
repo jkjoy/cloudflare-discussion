@@ -9,7 +9,7 @@ const username = route.params.username as string
 const { data } = await useFetch(`/api/member/${username}`, { method: 'POST' })
 const userinfo = data.value as UserDTO
 const selectedTab = ref('post')
-const currentUser = useState<UserDTO>('userinfo')
+const currentUser = useState<UserDTO>('userinfo', () => ({} as UserDTO))
 useHead({
   title: `${username}的详情`,
 })
