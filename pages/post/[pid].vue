@@ -9,7 +9,7 @@ const token = useCookie(config.public.tokenKey)
 const route = useRoute()
 const state = reactive({
   page: route.query.page ? Number.parseInt(route.query.page as any as string) : 1,
-  size: 100,
+  size: 20,
 })
 
 const url = `/api/post/${route.params.pid}`

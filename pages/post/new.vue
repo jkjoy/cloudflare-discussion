@@ -44,9 +44,8 @@ const toolbars: ToolbarNames[] = [
 ]
 
 const tagRes = await useFetch('/api/go/list', {
-  method: 'POST',
+  method: 'GET',
   key: 'allTagLists',
-  getCachedData: () => undefined,
 })
 const tags = computed(() => {
   const items = tagRes.data.value?.tags.map((item) => {

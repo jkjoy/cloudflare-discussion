@@ -2,6 +2,14 @@
 import type { PostDTO } from '~/types'
 
 const route = useRoute()
+function buildTagPostListUrl(tag: string, page: number, size: number) {
+  const params = new URLSearchParams({
+    tag,
+    page: String(page),
+    size: String(size),
+  })
+  return `/api/post/list?${params.toString()}`
+}
 
 const state = reactive({
   page: 1,
@@ -9,31 +17,27 @@ const state = reactive({
   tag: route.params.tag as string,
 })
 
-state.page = Number.parseInt(route.query.page as any as string)
-const { data } = await useFetch('/api/post/list', {
-  method: 'POST',
-  body: JSON.stringify(state),
+state.page = Number.parseInt(route.query.page as any as string) || 1
+const { data } = await useFetch(buildTagPostListUrl(state.tag, state.page, state.size), {
+  method: 'GET',
 })
 
 watch(() => route.fullPath, async () => {
-  const page = Number.parseInt(route.query.page as any as string)
-  const res = await $fetch('/api/post/list', {
-    method: 'POST',
-    body: JSON.stringify({
-      page,
-      size: state.size,
-      tagName: state.tag,
-    }),
+  state.tag = route.params.tag as string
+  const page = Number.parseInt(route.query.page as any as string) || 1
+  state.page = page
+  const res = await $fetch(buildTagPostListUrl(state.tag, page, state.size), {
+    method: 'GET',
   })
   data.value = res
 })
 
 watch(() => state.page, async () => {
   if (state.page === 1) {
-    navigateTo('/')
+    navigateTo(`/go/${state.tag}`)
     return
   }
-  navigateTo(`/?page=${state.page}`)
+  navigateTo(`/go/${state.tag}?page=${state.page}`)
 })
 
 const postList = computed(() => {

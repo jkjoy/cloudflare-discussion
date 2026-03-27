@@ -6,9 +6,8 @@ defineProps<{
 }>()
 
 const tagRes = await useFetch('/api/go/list?hot=true', {
-  method: 'POST',
+  method: 'GET',
   key: 'hotTagLists',
-  getCachedData: () => undefined,
 })
 
 const tagList = computed(() => {

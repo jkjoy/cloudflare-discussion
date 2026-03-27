@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-const { data: hotUsers } = await useFetch('/api/member/hot', { method: 'post', key: 'hotUsers' })
+const { data: hotUsers } = await useFetch('/api/member/hot', { method: 'GET', key: 'hotUsers' })
 </script>
 
 <template>

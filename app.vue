@@ -4,7 +4,7 @@ import type { SysConfigDTO } from './types'
 
 const global = useGlobalConfig()
 const { data: configData } = await useFetch('/api/config', {
-  method: 'POST',
+  method: 'GET',
 })
 
 const sysConfig = configData.value?.data as unknown as SysConfigDTO

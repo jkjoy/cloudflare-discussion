@@ -91,16 +91,46 @@ interface EmailConfig {
   to: string
 }
 
+interface UserTitleSummary {
+  id: number
+  title: string
+  style: string
+  status: boolean
+}
+
+interface ExecutionContextLike {
+  waitUntil(promise: Promise<unknown>): void
+}
+
 const DAY_MS = 24 * 60 * 60 * 1000
+const PUBLIC_API_PATHS = new Set([
+  '/api/config',
+  '/api/version',
+  '/api/go/list',
+  '/api/member/hot',
+  '/api/member/login',
+  '/api/member/reg',
+  '/api/member/sendEmail',
+  '/api/member/sendForgotPasswordEmail',
+  '/api/member/resetPwd',
+  '/api/tg',
+])
+const PUBLIC_GET_API_PATHS = new Set([
+  '/api/config',
+  '/api/version',
+  '/api/go/list',
+  '/api/member/hot',
+  '/api/post/list',
+])
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContextLike): Promise<Response> {
     const url = new URL(request.url)
     if (url.pathname.startsWith('/imgs/')) {
       return handleImageAsset(request, env, url)
     }
     if (url.pathname.startsWith('/api/')) {
-      return handleApi(request, env, url)
+      return handleApi(request, env, url, ctx)
     }
 
     if (env.ASSETS) {
@@ -111,71 +141,45 @@ export default {
   },
 }
 
-async function handleApi(request: Request, env: Env, url: URL) {
+async function handleApi(request: Request, env: Env, url: URL, ctx: ExecutionContextLike) {
   const pathname = url.pathname
   const method = request.method.toUpperCase()
-  const currentUser = await getCurrentUser(request, env)
+  const currentUser = shouldResolveCurrentUser(pathname, method) ? await getCurrentUser(request, env) : null
 
-  if (pathname === '/api/config' && method === 'POST') {
-    const config = await getSysConfig(env)
-    return json({
-      success: true,
-      data: getPublicSysConfig(config),
-      version: env.APP_VERSION || 'workers-d1',
-    })
-  }
-
-  if (pathname === '/api/version' && method === 'POST') {
-    return json({
-      success: true,
-      version: env.APP_VERSION || 'workers-d1',
-    })
-  }
-
-  if (pathname === '/api/go/list' && method === 'POST') {
-    const hot = url.searchParams.get('hot')
-    const name = url.searchParams.get('name')
-    const where: string[] = []
-    const args: any[] = []
-
-    if (hot === 'true') {
-      where.push('hot = 1')
+  if (pathname === '/api/config') {
+    if (method === 'GET') {
+      return respondWithEdgeCache(request, ctx, 300, async () => buildConfigResponse(env))
     }
-    if (name) {
-      where.push('en_name = ?')
-      args.push(name)
+    if (method === 'POST') {
+      return buildConfigResponse(env)
     }
-
-    const sql = `SELECT id, name, en_name, "desc", count, hot FROM tags${where.length ? ` WHERE ${where.join(' AND ')}` : ''} ORDER BY hot DESC, count DESC, id ASC`
-    const rows = await all(env, sql, args)
-
-    return json({
-      success: true,
-      tags: rows.map(mapTag),
-    })
   }
 
-  if (pathname === '/api/member/hot' && method === 'POST') {
-    const since = new Date(Date.now() - 3 * DAY_MS).toISOString()
-    const rows = await all(env, `
-      SELECT u.uid, u.username, u.avatar_url, u.head_img, SUM(ph.point) AS points
-      FROM point_history ph
-      JOIN users u ON u.uid = ph.uid
-      WHERE ph.created_at > ?
-        AND ph.reason NOT IN ('INVITE', 'PUTIN')
-      GROUP BY u.uid, u.username, u.avatar_url, u.head_img
-      HAVING SUM(ph.point) > 0
-      ORDER BY points DESC
-      LIMIT 10
-    `, [since])
+  if (pathname === '/api/version') {
+    if (method === 'GET') {
+      return respondWithEdgeCache(request, ctx, 300, async () => buildVersionResponse(env))
+    }
+    if (method === 'POST') {
+      return buildVersionResponse(env)
+    }
+  }
 
-    return json(rows.map(row => ({
-      uid: row.uid,
-      username: row.username,
-      avatarUrl: row.avatar_url,
-      headImg: row.head_img,
-      points: Number(row.points ?? 0),
-    })))
+  if (pathname === '/api/go/list') {
+    if (method === 'GET') {
+      return respondWithEdgeCache(request, ctx, 300, async () => buildTagListResponse(env, url))
+    }
+    if (method === 'POST') {
+      return buildTagListResponse(env, url)
+    }
+  }
+
+  if (pathname === '/api/member/hot') {
+    if (method === 'GET') {
+      return respondWithEdgeCache(request, ctx, 120, async () => buildMemberHotResponse(env))
+    }
+    if (method === 'POST') {
+      return buildMemberHotResponse(env)
+    }
   }
 
   if (pathname === '/api/member/login' && method === 'POST') {
@@ -446,38 +450,13 @@ async function handleApi(request: Request, env: Env, url: URL) {
     })
   }
 
-  if (pathname === '/api/post/list' && method === 'POST') {
-    const body = await readBody(request)
-    const page = getPage(body.page)
-    const size = getSize(body.size, 20)
-    const filters: string[] = ['p.read_role != 999']
-    const args: any[] = []
-
-    if (body.uid) {
-      filters.push('p.uid = ?')
-      args.push(String(body.uid))
+  if (pathname === '/api/post/list') {
+    if (method === 'GET') {
+      return respondWithEdgeCache(request, ctx, 60, async () => buildPostListResponse(env, null, getPostListInputFromUrl(url)))
     }
-    if (body.tag) {
-      filters.push('t.en_name = ?')
-      args.push(String(body.tag))
+    if (method === 'POST') {
+      return buildPostListResponse(env, currentUser, await readBody(request))
     }
-    if (body.key) {
-      filters.push('p.title LIKE ?')
-      args.push(`%${String(body.key).trim()}%`)
-    }
-
-    const whereClause = filters.length ? `WHERE ${filters.join(' AND ')}` : ''
-    const currentUserId = currentUser?.id ?? -1
-    const pinnedRows = await all(env, postListSql(`${whereClause}${whereClause ? ' AND ' : 'WHERE '}p.pinned = 1`, 'p.created_at DESC'), [currentUserId, ...args])
-    const postRows = await all(env, postListSql(`${whereClause}${whereClause ? ' AND ' : 'WHERE '}p.pinned = 0`, 'p.point DESC', 'LIMIT ? OFFSET ?'), [currentUserId, ...args, size, (page - 1) * size])
-    const totalRow = await first(env, `SELECT COUNT(*) AS count FROM posts p JOIN tags t ON t.id = p.tag_id ${whereClause}`, args)
-
-    const posts = await Promise.all([...pinnedRows, ...postRows].map(row => buildPostSummary(env, row, currentUser?.id)))
-    return json({
-      success: true,
-      posts,
-      total: Number(totalRow?.count ?? 0),
-    })
   }
 
   if (pathname === '/api/post/new' && method === 'POST') {
@@ -784,12 +763,13 @@ async function handleApi(request: Request, env: Env, url: URL) {
       return json({ success: false, message: '用户不存在' })
     }
 
-    const rows = await all(env, postListSql('WHERE p.uid = ?', 'p.created_at DESC', 'LIMIT ? OFFSET ?'), [currentUser?.id ?? -1, user.uid, size, (page - 1) * size])
+    const includeFav = currentUser?.id != null
+    const rows = await all(env, postListSql('WHERE p.uid = ?', 'p.created_at DESC', 'LIMIT ? OFFSET ?', includeFav), includeFav ? [currentUser.id, user.uid, size, (page - 1) * size] : [user.uid, size, (page - 1) * size])
     const total = await queryCount(env, 'SELECT COUNT(*) AS count FROM posts WHERE uid = ?', [user.uid])
 
     return json({
       success: true,
-      posts: await Promise.all(rows.map(row => buildPostSummary(env, row, currentUser?.id))),
+      posts: await buildPostSummaries(env, rows, currentUser?.id),
       total,
     })
   }
@@ -829,7 +809,7 @@ async function handleApi(request: Request, env: Env, url: URL) {
 
     return json({
       success: true,
-      comments: await Promise.all(rows.map(row => buildCommentWithPost(env, row))),
+      comments: await buildCommentsWithPosts(env, rows),
       total,
     })
   }
@@ -878,7 +858,7 @@ async function handleApi(request: Request, env: Env, url: URL) {
 
     return json({
       success: true,
-      posts: await Promise.all(rows.map(row => buildPostSummary(env, row, user.id))),
+      posts: await buildPostSummaries(env, rows, user.id),
       total,
     })
   }
@@ -1148,7 +1128,10 @@ async function handleApi(request: Request, env: Env, url: URL) {
     const size = getSize(body.size, 20)
     const username = String(body.username || '').trim()
     const where = username ? 'WHERE au.username LIKE ?' : ''
-    const args = username ? [currentUser?.id ?? -1, `%${username}%`, size, (page - 1) * size] : [currentUser?.id ?? -1, size, (page - 1) * size]
+    const includeFav = currentUser?.id != null
+    const args = username
+      ? includeFav ? [currentUser.id, `%${username}%`, size, (page - 1) * size] : [`%${username}%`, size, (page - 1) * size]
+      : includeFav ? [currentUser.id, size, (page - 1) * size] : [size, (page - 1) * size]
     const rows = await all(env, `
       SELECT
         p.*,
@@ -1168,7 +1151,7 @@ async function handleApi(request: Request, env: Env, url: URL) {
         lu.username AS last_comment_user_username,
         (SELECT COUNT(*) FROM comments c WHERE c.pid = p.pid) AS comments_count,
         (SELECT COUNT(*) FROM post_support ps WHERE ps.pid = p.pid) AS support_count,
-        (SELECT COUNT(*) FROM favorites f WHERE f.pid = p.pid AND f.user_id = ?) AS fav_count
+        ${includeFav ? '(SELECT COUNT(*) FROM favorites f WHERE f.pid = p.pid AND f.user_id = ?) AS fav_count' : '0 AS fav_count'}
       FROM posts p
       JOIN users au ON au.uid = p.uid
       JOIN tags t ON t.id = p.tag_id
@@ -1178,7 +1161,7 @@ async function handleApi(request: Request, env: Env, url: URL) {
       LIMIT ? OFFSET ?
     `, args)
     const total = await queryCount(env, `SELECT COUNT(*) AS count FROM posts p JOIN users au ON au.uid = p.uid ${where}`, username ? [`%${username}%`] : [])
-    return json({ success: true, posts: await Promise.all(rows.map(row => buildPostSummary(env, row, currentUser?.id))), total })
+    return json({ success: true, posts: await buildPostSummaries(env, rows, currentUser?.id), total })
   }
 
   if (pathname === '/api/manage/post/togglePin' && method === 'POST') {
@@ -1558,6 +1541,112 @@ async function handleImageUpload(request: Request, env: Env, currentUser: Curren
   })
 }
 
+async function buildConfigResponse(env: Env) {
+  const config = await getSysConfig(env)
+  return json({
+    success: true,
+    data: getPublicSysConfig(config),
+    version: env.APP_VERSION || 'workers-d1',
+  })
+}
+
+async function buildVersionResponse(env: Env) {
+  return json({
+    success: true,
+    version: env.APP_VERSION || 'workers-d1',
+  })
+}
+
+async function buildTagListResponse(env: Env, url: URL) {
+  const hot = url.searchParams.get('hot')
+  const name = url.searchParams.get('name')
+  const where: string[] = []
+  const args: any[] = []
+
+  if (hot === 'true') {
+    where.push('hot = 1')
+  }
+  if (name) {
+    where.push('en_name = ?')
+    args.push(name)
+  }
+
+  const sql = `SELECT id, name, en_name, "desc", count, hot FROM tags${where.length ? ` WHERE ${where.join(' AND ')}` : ''} ORDER BY hot DESC, count DESC, id ASC`
+  const rows = await all(env, sql, args)
+
+  return json({
+    success: true,
+    tags: rows.map(mapTag),
+  })
+}
+
+async function buildMemberHotResponse(env: Env) {
+  const since = new Date(Date.now() - 3 * DAY_MS).toISOString()
+  const rows = await all(env, `
+    SELECT u.uid, u.username, u.avatar_url, u.head_img, SUM(ph.point) AS points
+    FROM point_history ph
+    JOIN users u ON u.uid = ph.uid
+    WHERE ph.created_at > ?
+      AND ph.reason NOT IN ('INVITE', 'PUTIN')
+    GROUP BY u.uid, u.username, u.avatar_url, u.head_img
+    HAVING SUM(ph.point) > 0
+    ORDER BY points DESC
+    LIMIT 10
+  `, [since])
+
+  return json(rows.map(row => ({
+    uid: row.uid,
+    username: row.username,
+    avatarUrl: row.avatar_url,
+    headImg: row.head_img,
+    points: Number(row.points ?? 0),
+  })))
+}
+
+function getPostListInputFromUrl(url: URL) {
+  return {
+    uid: url.searchParams.get('uid') || '',
+    tag: url.searchParams.get('tag') || '',
+    key: url.searchParams.get('key') || '',
+    page: url.searchParams.get('page') || '',
+    size: url.searchParams.get('size') || '',
+  }
+}
+
+async function buildPostListResponse(env: Env, currentUser: CurrentUser | null, input: any) {
+  const page = getPage(input.page)
+  const size = getSize(input.size, 20)
+  const filters: string[] = ['p.read_role != 999']
+  const args: any[] = []
+
+  if (input.uid) {
+    filters.push('p.uid = ?')
+    args.push(String(input.uid))
+  }
+  if (input.tag) {
+    filters.push('t.en_name = ?')
+    args.push(String(input.tag))
+  }
+  if (input.key) {
+    filters.push('p.title LIKE ?')
+    args.push(`%${String(input.key).trim()}%`)
+  }
+
+  const whereClause = filters.length ? `WHERE ${filters.join(' AND ')}` : ''
+  const includeFav = currentUser?.id != null
+  const queryArgs = includeFav ? [currentUser.id, ...args] : args
+  const pinnedRows = await all(env, postListSql(`${whereClause}${whereClause ? ' AND ' : 'WHERE '}p.pinned = 1`, 'p.created_at DESC', '', includeFav), queryArgs)
+  const postRows = await all(env, postListSql(`${whereClause}${whereClause ? ' AND ' : 'WHERE '}p.pinned = 0`, 'p.point DESC', 'LIMIT ? OFFSET ?', includeFav), [...queryArgs, size, (page - 1) * size])
+  const totalRow = await first(env, `SELECT COUNT(*) AS count FROM posts p JOIN tags t ON t.id = p.tag_id ${whereClause}`, args)
+
+  const posts = await buildPostSummaries(env, [...pinnedRows, ...postRows], currentUser?.id)
+  return json({
+    success: true,
+    posts,
+    total: Number(totalRow?.count ?? 0),
+  })
+}
+
 async function handlePostDetail(env: Env, currentUser: CurrentUser | null, pid: string, request: Request) {
   const body = await readBody(request)
   const page = getPage(body.page)
@@ -1590,6 +1679,7 @@ async function handlePostDetail(env: Env, currentUser: CurrentUser | null, pid: 
     await run(env, 'UPDATE posts SET view_count = view_count + 1, updated_at = ? WHERE pid = ?', [nowIso(), pid])
   }
 
+  const includeFav = currentUser?.id != null
   const row = await first(env, `
     SELECT
       p.*,
@@ -1609,18 +1699,19 @@ async function handlePostDetail(env: Env, currentUser: CurrentUser | null, pid: 
       lu.username AS last_comment_user_username,
       (SELECT COUNT(*) FROM comments c WHERE c.pid = p.pid) AS comments_count,
       (SELECT COUNT(*) FROM post_support ps WHERE ps.pid = p.pid) AS support_count,
-      (SELECT COUNT(*) FROM favorites f WHERE f.pid = p.pid AND f.user_id = ?) AS fav_count
+      ${includeFav ? '(SELECT COUNT(*) FROM favorites f WHERE f.pid = p.pid AND f.user_id = ?) AS fav_count' : '0 AS fav_count'}
     FROM posts p
     JOIN users au ON au.uid = p.uid
     JOIN tags t ON t.id = p.tag_id
     LEFT JOIN users lu ON lu.uid = p.last_comment_uid
     WHERE p.pid = ?
-  `, [currentUser?.id ?? -1, pid])
+  `, includeFav ? [currentUser.id, pid] : [pid])
 
   if (!row) {
     return json({ success: false, message: '帖子不存在' })
   }
 
+  const includeReactionState = Boolean(currentUser?.uid)
   const commentRows = await all(env, `
     SELECT
       c.*,
@@ -1633,14 +1724,16 @@ async function handlePostDetail(env: Env, currentUser: CurrentUser | null, pid: 
       u.signature AS author_signature,
       (SELECT COUNT(*) FROM comment_likes cl WHERE cl.cid = c.cid) AS like_count,
       (SELECT COUNT(*) FROM comment_dislikes cd WHERE cd.cid = c.cid) AS dislike_count,
-      (SELECT COUNT(*) FROM comment_likes cl WHERE cl.cid = c.cid AND cl.uid = ?) AS liked_count,
-      (SELECT COUNT(*) FROM comment_dislikes cd WHERE cd.cid = c.cid AND cd.uid = ?) AS disliked_count
+      ${includeReactionState
+        ? `(SELECT COUNT(*) FROM comment_likes cl WHERE cl.cid = c.cid AND cl.uid = ?) AS liked_count,
+      (SELECT COUNT(*) FROM comment_dislikes cd WHERE cd.cid = c.cid AND cd.uid = ?) AS disliked_count`
+        : '0 AS liked_count, 0 AS disliked_count'}
     FROM comments c
     JOIN users u ON u.uid = c.uid
     WHERE c.pid = ?
     ORDER BY c.created_at ASC
     LIMIT ? OFFSET ?
-  `, [currentUser?.uid ?? '', currentUser?.uid ?? '', pid, size, (page - 1) * size])
+  `, includeReactionState ? [currentUser!.uid, currentUser!.uid, pid, size, (page - 1) * size] : [pid, size, (page - 1) * size])
 
   if (currentUser) {
     await run(env, 'UPDATE messages SET read = 1, updated_at = ? WHERE to_uid = ? AND read = 0 AND relation_id = ?', [nowIso(), currentUser.uid, pid])
@@ -1650,11 +1743,12 @@ async function handlePostDetail(env: Env, currentUser: CurrentUser | null, pid: 
     ? await queryCount(env, 'SELECT COUNT(*) AS count FROM payments WHERE pid = ? AND uid = ?', [pid, currentUser.uid]) > 0
     : false
   const support = currentUser ? await queryCount(env, 'SELECT COUNT(*) AS count FROM post_support WHERE uid = ? AND pid = ?', [currentUser.uid, pid]) > 0 : false
-  const post = await buildPostSummary(env, row, currentUser?.id, true)
+  const titlesByUserId = await getUserTitlesMap(env, [Number(row.author_id ?? 0), ...commentRows.map(comment => Number(comment.author_id ?? 0))])
+  const post: any = await buildPostSummary(env, row, currentUser?.id, true, titlesByUserId)
 
   post.content = row.content
   post.canViewHidden = currentUser?.uid === row.uid || alreadyPaid
-  post.comments = await Promise.all(commentRows.map(comment => buildComment(env, comment, currentUser?.uid ?? '', row.uid)))
+  post.comments = await Promise.all(commentRows.map(comment => buildComment(env, comment, currentUser?.uid ?? '', row.uid, titlesByUserId)))
   post.support = support
 
   return json({ success: true, post })
@@ -2168,8 +2262,18 @@ function mapMessageRow(row: any) {
   }
 }
 
-async function buildPostSummary(env: Env, row: any, currentUserId?: number, includeContent = false) {
-  const titles = await getUserTitles(env, row.author_id)
+async function buildPostSummaries(env: Env, rows: any[], currentUserId?: number, includeContent = false) {
+  const titlesByUserId = await getUserTitlesMap(env, rows.map(row => Number(row.author_id ?? 0)))
+  return Promise.all(rows.map(row => buildPostSummary(env, row, currentUserId, includeContent, titlesByUserId)))
+}
+
+async function buildCommentsWithPosts(env: Env, rows: any[]) {
+  const titlesByUserId = await getUserTitlesMap(env, rows.map(row => Number(row.author_id ?? 0)))
+  return Promise.all(rows.map(row => buildCommentWithPost(env, row, titlesByUserId)))
+}
+
+async function buildPostSummary(env: Env, row: any, currentUserId?: number, includeContent = false, titlesByUserId?: Map<number, UserTitleSummary[]>) {
+  const titles = titlesByUserId?.get(Number(row.author_id ?? 0)) ?? await getUserTitles(env, row.author_id)
   return {
     title: row.title,
     content: includeContent ? row.content : undefined,
@@ -2223,7 +2327,7 @@ async function buildPostSummary(env: Env, row: any, currentUserId?: number, incl
   }
 }
 
-async function buildComment(env: Env, row: any, currentUserUid: string, postUid: string) {
+async function buildComment(env: Env, row: any, currentUserUid: string, postUid: string, titlesByUserId?: Map<number, UserTitleSummary[]>) {
   return {
     content: row.content,
     cid: row.cid,
@@ -2237,7 +2341,7 @@ async function buildComment(env: Env, row: any, currentUserUid: string, postUid:
       headImg: row.author_head_img,
       role: row.author_role,
       signature: row.author_signature,
-      titles: await getUserTitles(env, row.author_id),
+      titles: titlesByUserId?.get(Number(row.author_id ?? 0)) ?? await getUserTitles(env, row.author_id),
     },
     likeCount: Number(row.like_count ?? 0),
     dislikeCount: Number(row.dislike_count ?? 0),
@@ -2251,7 +2355,7 @@ async function buildComment(env: Env, row: any, currentUserUid: string, postUid:
   }
 }
 
-async function buildCommentWithPost(env: Env, row: any) {
+async function buildCommentWithPost(env: Env, row: any, titlesByUserId?: Map<number, UserTitleSummary[]>) {
   return {
     content: row.content,
     cid: row.cid,
@@ -2266,7 +2370,7 @@ async function buildCommentWithPost(env: Env, row: any) {
       headImg: row.author_head_img,
       role: row.author_role,
       signature: row.author_signature,
-      titles: await getUserTitles(env, row.author_id ?? 0),
+      titles: titlesByUserId?.get(Number(row.author_id ?? 0)) ?? await getUserTitles(env, row.author_id ?? 0),
     },
     post: {
       pid: row.post_pid,
@@ -2401,23 +2505,48 @@ async function ensureUserSecretKey(env: Env, row: any) {
   return nextSecretKey
 }
 
-async function getUserTitles(env: Env, userId: number) {
-  if (!userId) {
-    return []
+async function getUserTitlesMap(env: Env, userIds: number[]) {
+  const ids = [...new Set(userIds.filter(userId => Number.isFinite(userId) && userId > 0).map(userId => Math.floor(userId)))]
+  const titlesByUserId = new Map<number, UserTitleSummary[]>()
+
+  for (const userId of ids) {
+    titlesByUserId.set(userId, [])
   }
+
+  if (ids.length === 0) {
+    return titlesByUserId
+  }
+
+  const placeholders = ids.map(() => '?').join(', ')
   const rows = await all(env, `
-    SELECT t.id, t.title, t.style, t.status
+    SELECT ut.user_id, t.id, t.title, t.style, t.status
     FROM user_titles ut
     JOIN titles t ON t.id = ut.title_id
-    WHERE ut.user_id = ?
-    ORDER BY t.id ASC
-  `, [userId])
-  return rows.map(row => ({
-    id: row.id,
-    title: row.title,
-    style: row.style,
-    status: Number(row.status) === 1,
-  }))
+    WHERE ut.user_id IN (${placeholders})
+    ORDER BY ut.user_id ASC, t.id ASC
+  `, ids)
+
+  for (const row of rows) {
+    const userId = Number(row.user_id ?? 0)
+    const titles = titlesByUserId.get(userId)
+    if (!titles) {
+      continue
+    }
+
+    titles.push({
+      id: Number(row.id),
+      title: row.title,
+      style: row.style,
+      status: Number(row.status) === 1,
+    })
+  }
+
+  return titlesByUserId
+}
+
+async function getUserTitles(env: Env, userId: number) {
+  const titlesByUserId = await getUserTitlesMap(env, [userId])
+  return titlesByUserId.get(Number(userId)) || []
 }
 
 async function getUsernameByUid(env: Env, uid: string) {
@@ -2531,7 +2660,7 @@ function mapTag(row: any) {
   }
 }
 
-function postListSql(whereClause: string, orderBy: string, tail = '') {
+function postListSql(whereClause: string, orderBy: string, tail = '', includeFav = false) {
   return `
     SELECT
       p.*,
@@ -2551,7 +2680,7 @@ function postListSql(whereClause: string, orderBy: string, tail = '') {
       lu.username AS last_comment_user_username,
       (SELECT COUNT(*) FROM comments c WHERE c.pid = p.pid) AS comments_count,
       (SELECT COUNT(*) FROM post_support ps WHERE ps.pid = p.pid) AS support_count,
-      (SELECT COUNT(*) FROM favorites f WHERE f.pid = p.pid AND f.user_id = ?) AS fav_count
+      ${includeFav ? '(SELECT COUNT(*) FROM favorites f WHERE f.pid = p.pid AND f.user_id = ?) AS fav_count' : '0 AS fav_count'}
     FROM posts p
     JOIN users au ON au.uid = p.uid
     JOIN tags t ON t.id = p.tag_id
@@ -2833,6 +2962,13 @@ function normalizeNullableString(value: any) {
   return text ? text : null
 }
 
+function shouldResolveCurrentUser(pathname: string, method: string) {
+  if (method === 'GET' && PUBLIC_GET_API_PATHS.has(pathname)) {
+    return false
+  }
+  return !PUBLIC_API_PATHS.has(pathname)
+}
+
 function isAdmin(user: CurrentUser | null) {
   return user?.role === 'ADMIN'
 }
@@ -2857,6 +2993,37 @@ function json(data: any, headers?: Headers) {
     status: 200,
     headers: responseHeaders,
   })
+}
+
+async function respondWithEdgeCache(
+  request: Request,
+  ctx: ExecutionContextLike,
+  ttlSeconds: number,
+  buildResponse: () => Promise<Response>,
+) {
+  const cacheKey = new Request(request.url, { method: 'GET' })
+  const cache = caches.default
+  const cached = await cache.match(cacheKey)
+
+  if (cached) {
+    const response = toMutableResponse(cached)
+    response.headers.set('x-edge-cache', 'HIT')
+    return response
+  }
+
+  const response = await buildResponse()
+  if (response.status !== 200) {
+    return response
+  }
+
+  response.headers.set('Cache-Control', `public, max-age=${ttlSeconds}`)
+  response.headers.set('x-edge-cache', 'MISS')
+  ctx.waitUntil(cache.put(cacheKey, response.clone()))
+  return response
+}
+
+function toMutableResponse(response: Response) {
+  return new Response(response.body, response)
 }
 
 async function all(env: Env, sql: string, params: any[]) {
@@ -3067,7 +3234,10 @@ function getPage(value: any) {
 
 function getSize(value: any, fallback: number) {
   const size = Number(value || fallback)
-  return Number.isFinite(size) && size > 0 ? Math.floor(size) : fallback
+  if (!Number.isFinite(size) || size <= 0) {
+    return fallback
+  }
+  return Math.min(100, Math.floor(size))
 }
 
 function parseJsonObject(value: string) {

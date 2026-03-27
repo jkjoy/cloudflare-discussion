@@ -17,6 +17,10 @@ const sliderOpen = useState('sliderOpen', () => {
 const global = useGlobalConfig()
 
 async function loadProfile() {
+  if (!token.value) {
+    userinfo.value = {} as UserDTO
+    return
+  }
   const userinfoRes = await useFetch('/api/member/profile', {
     method: 'POST',
   })
@@ -28,6 +32,10 @@ const sysconfig = global.value?.sysConfig as SysConfigDTO
 const version = global.value?.version
 
 userCardChanged.on(async () => {
+  if (!token.value) {
+    userinfo.value = {} as UserDTO
+    return
+  }
   const userinfoRes = await $fetch('/api/member/profile', {
     method: 'POST',
   })
@@ -48,6 +56,9 @@ watch(token, async () => {
     if (userinfoRes) {
       userinfo.value = userinfoRes as UserDTO
     }
+  }
+  else {
+    userinfo.value = {} as UserDTO
   }
 })
 
@@ -138,9 +149,13 @@ watch(() => route.fullPath, async (n) => {
 })
 watch(() => route.fullPath, async () => {
   if (route.fullPath.startsWith('/go/')) {
-    const name = route.fullPath.replaceAll('/go/', '')
-    const res = await $fetch<{ tags: Array<TagDTO> }>(`/api/go/list?name=${name}`, {
-      method: 'POST',
+    const name = String(route.params.tag || '')
+    if (!name) {
+      tag.value = undefined
+      return
+    }
+    const res = await $fetch<{ tags: Array<TagDTO> }>(`/api/go/list?name=${encodeURIComponent(name)}`, {
+      method: 'GET',
     })
     tag.value = res.tags[0] as TagDTO
   }

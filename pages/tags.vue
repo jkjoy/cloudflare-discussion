@@ -2,9 +2,8 @@
 import type { TagDTO } from '~/types'
 
 const tagRes = await useFetch('/api/go/list', {
-  method: 'POST',
+  method: 'GET',
   key: 'allTagLists',
-  getCachedData: () => undefined,
 })
 
 const tagList = computed(() => {

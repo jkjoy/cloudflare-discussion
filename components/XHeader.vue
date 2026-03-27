@@ -17,7 +17,7 @@ const token = useCookie(config.public.tokenKey)
 const userinfo = useState<UserDTO | undefined>('userinfo')
 async function logout() {
   token.value = ''
-  userinfo.value = undefined
+  userinfo.value = {} as UserDTO
   await navigateTo('/')
 }
 

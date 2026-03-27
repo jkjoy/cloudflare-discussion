@@ -2,24 +2,34 @@
 import type { PostDTO } from '~/types'
 
 const route = useRoute()
+function buildPostListUrl(page: number, key?: string) {
+  const params = new URLSearchParams({
+    page: String(page),
+    size: String(state.size),
+  })
+  const keyword = String(key || '').trim()
+  if (keyword) {
+    params.set('key', keyword)
+  }
+  return `/api/post/list?${params.toString()}`
+}
+
 const state = reactive({
   page: 1,
-  size: 100,
+  size: 20,
   key: route.query.key,
 })
 
 state.page = Number.parseInt(route.query.page as any as string) || 1
-const { data } = await useFetch('/api/post/list', {
-  method: 'POST',
-  body: JSON.stringify(state),
+const { data } = await useFetch(buildPostListUrl(state.page, state.key as string), {
+  method: 'GET',
 })
 
 watch(() => route.fullPath, async () => {
   state.page = Number.parseInt(route.query.page as any as string) || 1
   state.key = route.query.key as any as string
-  const res = await $fetch('/api/post/list', {
-    method: 'POST',
-    body: JSON.stringify(state),
+  const res = await $fetch(buildPostListUrl(state.page, state.key as string), {
+    method: 'GET',
   })
   data.value = res
 })
