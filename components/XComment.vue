@@ -100,7 +100,7 @@ themeChanged.on((val) => {
           <span
             v-if="author.uid === post!.uid"
             class="text-[11px] ml-1 bg-gray-500 text-white rounded px-1"
-          >楼主</span>
+          >OP</span>
           <span
             v-if="author.role === 'ADMIN'"
             class="text-[11px] ml-1 bg-green-500 text-white rounded px-1"
