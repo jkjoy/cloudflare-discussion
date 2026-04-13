@@ -148,7 +148,7 @@ async function handleApi(request: Request, env: Env, url: URL, ctx: ExecutionCon
 
   if (pathname === '/api/config') {
     if (method === 'GET') {
-      return respondWithEdgeCache(request, ctx, 300, async () => buildConfigResponse(env))
+      return buildConfigResponse(env)
     }
     if (method === 'POST') {
       return buildConfigResponse(env)
@@ -1543,11 +1543,14 @@ async function handleImageUpload(request: Request, env: Env, currentUser: Curren
 
 async function buildConfigResponse(env: Env) {
   const config = await getSysConfig(env)
+  const headers = new Headers({
+    'Cache-Control': 'no-store',
+  })
   return json({
     success: true,
     data: getPublicSysConfig(config),
     version: '1.0',
-  })
+  }, headers)
 }
 
 async function buildVersionResponse(env: Env) {
