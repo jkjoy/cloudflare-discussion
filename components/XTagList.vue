@@ -1,20 +1,43 @@
 <script lang="ts" setup>
 import type { TagDTO } from '~/types'
 
-defineProps<{
+const props = defineProps<{
   selected?: string
 }>()
 
-const { data: tagData, pending: tagPending } = useLazyFetch<{ tags: TagDTO[] }>('/api/go/list?hot=true', {
+const { data: tagData, pending: tagPending } = useLazyFetch<{ tags: TagDTO[] }>('/api/go/list', {
   method: 'GET',
-  key: 'hotTagLists',
+  key: 'allTagLists',
   default: () => ({
     tags: [],
   }),
 })
 
-const tagList = computed(() => {
+const allTags = computed(() => {
   return tagData.value?.tags || []
+})
+
+const tagList = computed(() => {
+  const tags = allTags.value
+  if (tags.length === 0) {
+    return []
+  }
+
+  const hotTags = tags.filter(tag => tag.hot)
+  if (hotTags.length === 0) {
+    return tags
+  }
+
+  if (!props.selected || props.selected === 'all') {
+    return hotTags
+  }
+
+  const selectedTag = tags.find(tag => tag.enName === props.selected)
+  if (!selectedTag || hotTags.some(tag => tag.id === selectedTag.id)) {
+    return hotTags
+  }
+
+  return [selectedTag, ...hotTags]
 })
 </script>
 

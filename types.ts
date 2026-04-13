@@ -107,6 +107,7 @@ export interface TagDTO {
   desc: string
   enName: string
   count: number
+  hot?: boolean
 }
 export interface TitleDTO {
   id: number

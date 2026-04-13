@@ -3,16 +3,16 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "build": "NUXT_TELEMETRY_DISABLED=1 node node_modules/nuxt/bin/nuxt.mjs generate",
-    "build:web": "NUXT_TELEMETRY_DISABLED=1 node node_modules/nuxt/bin/nuxt.mjs generate",
-    "cf:preview": "NUXT_TELEMETRY_DISABLED=1 node node_modules/nuxt/bin/nuxt.mjs generate && node node_modules/wrangler/bin/wrangler.js dev",
-    "cf:deploy": "NUXT_TELEMETRY_DISABLED=1 node node_modules/nuxt/bin/nuxt.mjs generate && node node_modules/wrangler/bin/wrangler.js deploy",
+    "build": "npm run generate",
+    "build:web": "npm run generate",
+    "cf:preview": "npm run generate && node node_modules/wrangler/bin/wrangler.js dev",
+    "cf:deploy": "npm run generate && node node_modules/wrangler/bin/wrangler.js deploy",
     "d1:migrate:local": "node node_modules/wrangler/bin/wrangler.js d1 migrations apply DB --local",
     "d1:migrate:remote": "node node_modules/wrangler/bin/wrangler.js d1 migrations apply DB --remote",
-    "dev": "NUXT_TELEMETRY_DISABLED=1 node node_modules/nuxt/bin/nuxt.mjs dev",
-    "generate": "NUXT_TELEMETRY_DISABLED=1 node node_modules/nuxt/bin/nuxt.mjs generate",
-    "preview": "NUXT_TELEMETRY_DISABLED=1 node node_modules/nuxt/bin/nuxt.mjs preview",
-    "postinstall": "NUXT_TELEMETRY_DISABLED=1 node node_modules/nuxt/bin/nuxt.mjs prepare"
+    "dev": "cross-env NUXT_TELEMETRY_DISABLED=1 node node_modules/nuxt/bin/nuxt.mjs dev",
+    "generate": "cross-env NUXT_TELEMETRY_DISABLED=1 node node_modules/nuxt/bin/nuxt.mjs generate",
+    "preview": "cross-env NUXT_TELEMETRY_DISABLED=1 node node_modules/nuxt/bin/nuxt.mjs preview",
+    "postinstall": "cross-env NUXT_TELEMETRY_DISABLED=1 node node_modules/nuxt/bin/nuxt.mjs prepare"
   },
   "dependencies": {
     "@iconify-json/carbon": "^1.1.36",
@@ -29,6 +29,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "cross-env": "^10.1.0",
     "typescript": "^5.5.3",
     "wrangler": "^4.7.0"
   }

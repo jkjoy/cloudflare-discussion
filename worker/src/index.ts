@@ -166,7 +166,7 @@ async function handleApi(request: Request, env: Env, url: URL, ctx: ExecutionCon
 
   if (pathname === '/api/go/list') {
     if (method === 'GET') {
-      return respondWithEdgeCache(request, ctx, 300, async () => buildTagListResponse(env, url))
+      return buildTagListResponse(env, url)
     }
     if (method === 'POST') {
       return buildTagListResponse(env, url)
@@ -1576,11 +1576,14 @@ async function buildTagListResponse(env: Env, url: URL) {
 
   const sql = `SELECT id, name, en_name, "desc", count, hot FROM tags${where.length ? ` WHERE ${where.join(' AND ')}` : ''} ORDER BY hot DESC, count DESC, id ASC`
   const rows = await all(env, sql, args)
+  const headers = new Headers({
+    'Cache-Control': 'no-store',
+  })
 
   return json({
     success: true,
     tags: rows.map(mapTag),
-  })
+  }, headers)
 }
 
 async function buildMemberHotResponse(env: Env) {
