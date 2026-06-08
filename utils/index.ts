@@ -26,6 +26,18 @@ export function canUseInternalImageUpload(_sysconfig?: Partial<SysConfigDTO> | n
   return true
 }
 
+interface UploadImageResponse {
+  success?: boolean
+  filename?: string | null
+  url?: string | null
+  message?: string | null
+}
+
+function getUploadedImageUrl(result: UploadImageResponse) {
+  const url = result.filename || result.url
+  return typeof url === 'string' ? url.trim() : ''
+}
+
 export async function onUploadImg(files: File[], callback: any) {
   const global = useGlobalConfig()
   const sysconfig = global.value?.sysConfig as SysConfigDTO
@@ -47,20 +59,20 @@ export async function onUploadImg(files: File[], callback: any) {
           return (await $fetch('/api/imgs/upload', {
             method: 'POST',
             body: form,
-          })) as any
+          })) as UploadImageResponse
         }),
       )
       const failed = res.find(r => !r.success)
       if (failed) {
         throw new Error(failed.message || '上传失败')
       }
-      callback(
-        res.filter(r => r.success).map(r => ({
-          url: `${r.filename}`,
-          alt: 'alt',
-          title: 'title',
-        })),
-      )
+
+      const urls = res.map(getUploadedImageUrl).filter(url => url.length > 0)
+      if (urls.length !== res.length) {
+        throw new Error('上传成功但未返回图片地址')
+      }
+
+      callback(urls)
     }
   }
 
