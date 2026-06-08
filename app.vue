@@ -7,7 +7,6 @@ const { data: configData } = await useFetch('/api/config', {
 })
 
 const sysConfig = (configData.value?.data as unknown as SysConfigDTO) ?? {} as SysConfigDTO
-
 const version = configData.value?.version
 
 global.value = { sysConfig, version: version || '' }
@@ -18,6 +17,18 @@ useHead({
     { name: 'keywords', content: sysConfig?.websiteKeywords || '' },
     { name: 'description', content: sysConfig?.websiteDescription || '' },
   ],
+})
+
+// SSR 时 config 可能拿不到（开发环境 API 未启动），客户端挂载后补充加载
+onMounted(async () => {
+  if (global.value.sysConfig?.websiteName) return
+  try {
+    const res = await $fetch<{ data: SysConfigDTO, version: string }>('/api/config')
+    if (res?.data) {
+      global.value = { sysConfig: res.data, version: res.version || '' }
+    }
+  }
+  catch {}
 })
 </script>
 

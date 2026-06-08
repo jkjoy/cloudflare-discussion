@@ -8,7 +8,13 @@ export default defineNuxtConfig({
   modules: ['@nuxt/ui', '@vueuse/nuxt'],
 
   ui: {
-    icons: ['carbon'],
+    icons: ['carbon', 'heroicons'],
+  },
+
+  icon: {
+    serverBundle: {
+      collections: ['carbon', 'heroicons'],
+    },
   },
 
   devtools: {

@@ -7,9 +7,11 @@ interface HotUserDTO {
   points: number
 }
 
-const { data: hotUsers } = useLazyFetch<HotUserDTO[]>('/api/member/hot', {
+const { data: hotUsers } = useFetch<HotUserDTO[]>('/api/member/hot', {
   method: 'GET',
   key: 'hotUsers',
+  server: false,
+  lazy: true,
   default: () => [],
 })
 </script>

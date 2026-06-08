@@ -27,7 +27,7 @@ async function loadProfile() {
     userinfo.value = userinfoRes
   }
 }
-const sysconfig = (global.value?.sysConfig ?? {}) as SysConfigDTO
+const sysconfig = computed(() => (global.value?.sysConfig ?? {}) as SysConfigDTO)
 // 版本号来自构建时注入的 NUXT_PUBLIC_APP_VERSION(deploy 时等于 git tag),去掉前导 v 以配合页脚已有的 "版本v" 前缀
 const version = String(config.public.appVersion || '1.0').replace(/^v/, '')
 
@@ -67,37 +67,22 @@ if (process.client) {
   void loadProfile()
 }
 
-if (sysconfig.css) {
-  useHead({
-    style: [
-      {
-        innerHTML: sysconfig.css,
-      },
-    ],
-  })
-}
-
-if (sysconfig.js) {
-  useHead({
+// sysconfig 变为响应式后，useHead 统一用 computed 形式，config 后加载时自动生效
+useHead(computed(() => {
+  const cfg = sysconfig.value
+  return {
+    style: cfg.css ? [{ innerHTML: cfg.css }] : [],
     script: [
-      {
+      ...(cfg.js ? [{ type: 'text/javascript', innerHTML: cfg.js }] : []),
+      ...(cfg.turnstile?.enable ? [{
         type: 'text/javascript',
-        innerHTML: sysconfig.js,
-      },
+        src: 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit',
+        defer: true,
+      }] : []),
     ],
-  })
-}
-
-if (sysconfig.favicon) {
-  useHead({
-    link: [
-      {
-        rel: 'shortcut icon',
-        href: sysconfig.favicon,
-      },
-    ],
-  })
-}
+    link: cfg.favicon ? [{ rel: 'shortcut icon', href: cfg.favicon }] : [],
+  }
+}))
 
 useHead(() => {
   const userCss = userinfo.value?.css
@@ -124,17 +109,6 @@ useHead(() => {
   }
 })
 
-if (sysconfig.turnstile && sysconfig.turnstile.enable) {
-  useHead({
-    script: [
-      {
-        type: 'text/javascript',
-        src: 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit',
-        defer: true,
-      },
-    ],
-  })
-}
 const open = ref(false)
 function search() {
   if (!keyWords.value)
@@ -185,7 +159,7 @@ function inputKey(value: any) {
   }
 }
 function GoogleSearch() {
-  const webUrl = sysconfig.websiteUrl || window.location.hostname
+  const webUrl = sysconfig.value.websiteUrl || window.location.hostname
   const url = `https://www.google.com/search?q=site:${webUrl}%20${encodeURIComponent(keyWords.value)}`
   window.open(url, '_blank')
 }

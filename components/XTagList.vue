@@ -8,6 +8,8 @@ const props = defineProps<{
 const { data: tagData, pending: tagPending } = useFetch<{ tags: TagDTO[] }>('/api/go/list', {
   method: 'GET',
   key: 'allTagLists',
+  server: false,
+  lazy: true,
   default: () => ({
     tags: [],
   }),
