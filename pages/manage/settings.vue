@@ -89,8 +89,13 @@ type ConfigStatus = 'idle' | 'pending' | 'success' | 'error'
 
 const configStatus = ref<ConfigStatus>('pending')
 const configError = ref<Error | null>(null)
+const hasLoadedConfig = ref(false)
+const isInitialLoading = computed(() => configStatus.value === 'pending' && !hasLoadedConfig.value)
+const shouldShowSettings = computed(() => hasLoadedConfig.value && !isInitialLoading.value)
+let configRequestId = 0
 
 async function refreshConfig() {
+  const requestId = ++configRequestId
   configStatus.value = 'pending'
   configError.value = null
 
@@ -99,10 +104,17 @@ async function refreshConfig() {
       method: 'POST',
       timeout: 10000,
     })
+    if (requestId !== configRequestId) {
+      return
+    }
     applyConfig(res.config)
+    hasLoadedConfig.value = true
     configStatus.value = 'success'
   }
   catch (error) {
+    if (requestId !== configRequestId) {
+      return
+    }
     configError.value = error instanceof Error ? error : new Error('系统设置加载失败')
     configStatus.value = 'error'
     console.error('加载系统设置失败', error)
@@ -256,7 +268,7 @@ async function copyWebhook() {
 
 <template>
   <UCard class="flex-1">
-    <div v-if="configStatus === 'pending'" class="space-y-3">
+    <div v-if="isInitialLoading" class="space-y-3">
       <div class="text-sm text-gray-500">
         正在加载系统设置...
       </div>
@@ -267,7 +279,7 @@ async function copyWebhook() {
       </div>
     </div>
 
-    <div v-else-if="configError" class="space-y-3">
+    <div v-else-if="configError && !hasLoadedConfig" class="space-y-3">
       <div class="text-sm text-red-500">
         系统设置加载失败：{{ configError.message || '请稍后重试' }}
       </div>
@@ -276,7 +288,24 @@ async function copyWebhook() {
       </UButton>
     </div>
 
-    <div v-else class="flex flex-col space-y-2">
+    <div v-else-if="shouldShowSettings" class="flex flex-col space-y-2">
+      <div
+        v-if="configStatus === 'pending' || configError"
+        :class="[
+          'flex items-center justify-between gap-3 rounded px-3 py-2 text-sm',
+          configError
+            ? 'bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-300'
+            : 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300',
+        ]"
+      >
+        <span>
+          {{ configError ? `系统设置刷新失败：${configError.message || '请稍后重试'}` : '正在刷新系统设置...' }}
+        </span>
+        <UButton v-if="configError" size="xs" color="white" @click="refreshConfig">
+          重试
+        </UButton>
+      </div>
+
       <div class="flex flex-row space-x-2">
         <UFormGroup label="论坛名称" name="websiteName">
           <UInput v-model="state.websiteName" autocomplete="off" />
