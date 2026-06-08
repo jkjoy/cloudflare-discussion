@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import type { ToolbarNames } from 'md-editor-v3'
-import { MdEditor } from 'md-editor-v3'
 import 'md-editor-v3/lib/style.css'
 import { toast } from 'vue-sonner'
 import { useColorMode } from '@vueuse/core'
@@ -33,9 +32,10 @@ const toolbars: ToolbarNames[] = [
   '=',
   'preview',
 ]
-const { data: configData } = await useFetch('/api/manage/config/get', { method: 'POST' })
+const mdEditorComponent = shallowRef()
 
-const state = reactive({
+function createDefaultState() {
+  return {
   websiteName: '极简论坛',
   websiteUrl: '',
   webBgimage: '',
@@ -81,9 +81,60 @@ const state = reactive({
     imgStrategy: 'r2',
     attachmentStrategy: 'r2',
   },
+  }
+}
+
+const state = reactive(createDefaultState())
+
+function applyConfig(config: Record<string, any> | null | undefined) {
+  const defaults = createDefaultState()
+  Object.assign(state, defaults, config ?? {})
+  state.postUrlFormat = {
+    ...defaults.postUrlFormat,
+    ...(config?.postUrlFormat ?? {}),
+  }
+  state.email = {
+    ...defaults.email,
+    ...(config?.email ?? {}),
+  }
+  state.turnstile = {
+    ...defaults.turnstile,
+    ...(config?.turnstile ?? {}),
+  }
+  state.notify = {
+    ...defaults.notify,
+    ...(config?.notify ?? {}),
+  }
+  state.upload = {
+    ...defaults.upload,
+    ...(config?.upload ?? {}),
+  }
+}
+
+const {
+  data: configData,
+  status: configStatus,
+  error: configError,
+  refresh: refreshConfig,
+} = useFetch('/api/manage/config/get', {
+  method: 'POST',
+  default: () => ({ success: true, config: null }),
 })
 
-Object.assign(state, configData.value?.config)
+watch(() => configData.value?.config, (config) => {
+  applyConfig(config)
+}, { immediate: true })
+
+onMounted(async () => {
+  const { MdEditor } = await import('md-editor-v3')
+  mdEditorComponent.value = MdEditor
+})
+
+watch(configError, (error) => {
+  if (error) {
+    console.error('加载系统设置失败', error)
+  }
+})
 
 function randomString(e: number) {
   e = e || 32
@@ -230,7 +281,27 @@ async function copyWebhook() {
 
 <template>
   <UCard class="flex-1">
-    <div class="flex flex-col space-y-2">
+    <div v-if="configStatus === 'pending'" class="space-y-3">
+      <div class="text-sm text-gray-500">
+        正在加载系统设置...
+      </div>
+      <div class="space-y-2">
+        <div class="h-10 rounded bg-gray-100 dark:bg-slate-700 animate-pulse" />
+        <div class="h-10 rounded bg-gray-100 dark:bg-slate-700 animate-pulse" />
+        <div class="h-[200px] rounded bg-gray-100 dark:bg-slate-700 animate-pulse" />
+      </div>
+    </div>
+
+    <div v-else-if="configError" class="space-y-3">
+      <div class="text-sm text-red-500">
+        系统设置加载失败：{{ configError.message || '请稍后重试' }}
+      </div>
+      <UButton class="w-fit" @click="refreshConfig">
+        重新加载
+      </UButton>
+    </div>
+
+    <div v-else class="flex flex-col space-y-2">
       <div class="flex flex-row space-x-2">
         <UFormGroup label="论坛名称" name="websiteName">
           <UInput v-model="state.websiteName" autocomplete="off" />
@@ -258,10 +329,12 @@ async function copyWebhook() {
       <div class="flex flex-row space-x-2">
         <UFormGroup label="站点公告" name="websiteAnnouncement">
           <ClientOnly>
-            <MdEditor
+            <component
+              :is="mdEditorComponent" v-if="mdEditorComponent"
               v-model="state.websiteAnnouncement" style="height:200px;" :theme="mode as any" :preview="false"
               :toolbars="toolbars" editor-id="sysSettings" @on-upload-img="onUploadImg"
             />
+            <div v-else class="h-[200px] rounded border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 animate-pulse" />
           </ClientOnly>
         </UFormGroup>
       </div>
@@ -332,10 +405,10 @@ async function copyWebhook() {
         <template #email-settings>
           <div class="flex flex-col space-y-2 ">
             <UFormGroup label="开启邮件验证注册用户" name="regWithEmailCodeVerify">
-              <USelectMenu
-                v-model="state.regWithEmailCodeVerify" value-attribute="value" option-attribute="label"
-                :options="[{ value: true, label: '是' }, { value: false, label: '否' }]"
-              />
+              <div class="flex items-center gap-3">
+                <UToggle v-model="state.regWithEmailCodeVerify" />
+                <span class="text-sm text-gray-500">{{ state.regWithEmailCodeVerify ? '是' : '否' }}</span>
+              </div>
             </UFormGroup>
             <UFormGroup label="Resend API Key" name="apiKey">
               <template #hint>
@@ -381,10 +454,10 @@ async function copyWebhook() {
           <div class="flex flex-col space-y-2 ">
             <div class="flex flex-row space-x-2">
               <UFormGroup label="是否启用" name="turnstileEnabled" class="w-[500px]">
-                <USelectMenu
-                  v-model="state.turnstile.enable" value-attribute="value" option-attribute="label"
-                  :options="[{ value: true, label: '是' }, { value: false, label: '否' }]"
-                />
+                <div class="flex items-center gap-3">
+                  <UToggle v-model="state.turnstile.enable" />
+                  <span class="text-sm text-gray-500">{{ state.turnstile.enable ? '是' : '否' }}</span>
+                </div>
               </UFormGroup>
             </div>
 
@@ -403,15 +476,13 @@ async function copyWebhook() {
           <div class="flex flex-col space-y-2 ">
             <div class="flex flex-row space-x-2">
               <UFormGroup label="是否启用Telegram机器人" name="tgBotEnabled" class="w-[500px]">
-                <UButtonGroup>
-                  <USelectMenu
-                    v-model="state.notify.tgBotEnabled" class="w-[400px]" value-attribute="value"
-                    option-attribute="label" :options="[{ value: true, label: '是' }, { value: false, label: '否' }]"
-                  />
+                <div class="flex items-center gap-3">
+                  <UToggle v-model="state.notify.tgBotEnabled" />
+                  <span class="text-sm text-gray-500">{{ state.notify.tgBotEnabled ? '是' : '否' }}</span>
                   <UButton @click="copyWebhook">
                     复制WebHook地址
                   </UButton>
-                </UButtonGroup>
+                </div>
               </UFormGroup>
             </div>
 

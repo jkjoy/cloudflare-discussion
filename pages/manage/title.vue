@@ -150,10 +150,6 @@ async function reload(page: number) {
   titleListRes.value = res
 }
 
-const statusList = ref([
-  { value: true, desc: '启用' },
-  { value: false, desc: '禁用' },
-])
 </script>
 
 <template>
@@ -195,7 +191,10 @@ const statusList = ref([
         <UInput v-model="saveState.title" />
       </UFormGroup>
       <UFormGroup label="状态" name="status">
-        <USelectMenu v-model="saveState.status" value-attribute="value" option-attribute="desc" :options="statusList" />
+        <div class="flex items-center gap-3">
+          <UToggle v-model="saveState.status" />
+          <span class="text-sm text-gray-500">{{ saveState.status ? '启用' : '禁用' }}</span>
+        </div>
       </UFormGroup>
       <UFormGroup label="样式" name="style">
         <USelectMenu v-model="saveState.style" value-attribute="key" option-attribute="label" :options="styles" />
