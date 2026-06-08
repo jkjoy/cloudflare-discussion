@@ -37,6 +37,6 @@ body,
 #__nuxt {
   width: 100%;
   height: 100%;
-  @apply bg-slate-50;
+  @apply bg-slate-50 dark:bg-slate-800;
 }
 </style>
