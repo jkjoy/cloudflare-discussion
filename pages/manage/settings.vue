@@ -1,8 +1,5 @@
 <script lang="ts" setup>
-import type { ToolbarNames } from 'md-editor-v3'
-import 'md-editor-v3/lib/style.css'
 import { toast } from 'vue-sonner'
-import { useColorMode } from '@vueuse/core'
 
 useHead({
   title: '系统设置',
@@ -10,77 +7,54 @@ useHead({
 definePageMeta({
   layout: 'backend',
 })
-const mode = useColorMode()
-
-const toolbars: ToolbarNames[] = [
-  'bold',
-  'underline',
-  '-',
-  'strikeThrough',
-  'quote',
-  'unorderedList',
-  'orderedList',
-  '-',
-  'codeRow',
-  'code',
-  'link',
-  'image',
-  'table',
-  '-',
-  'revoke',
-  'next',
-  '=',
-  'preview',
-]
-const mdEditorComponent = shallowRef()
 
 function createDefaultState() {
   return {
-  websiteName: '极简论坛',
-  websiteUrl: '',
-  webBgimage: '',
-  websiteKeywords: '极简,论坛,极简论坛',
-  websiteDescription: '极简论坛',
-  favicon: '',
-  pointPerPost: 5,
-  pointPerPostByDay: 20,
-  pointPerComment: 1,
-  pointPerCommentByDay: 20,
-  pointPerLikeOrDislike: 1,
-  pointPerDaySignInMin: 1,
-  pointPerDaySignInMax: 10,
-  websiteAnnouncement: ``,
-  css: '',
-  js: '',
-  postUrlFormat: {
-    type: 'UUID',
-    minNumber: 10000,
-    dateFormat: 'YYYYMMDDHHmmssSSS',
-  },
-  invite: false,
-  createInviteCodePoint: 100,
-  regWithEmailCodeVerify: false,
-  email: {
-    apiKey: '',
-    from: '',
-    to: '',
-    senderName: '',
-  },
-  turnstile: {
-    siteKey: '',
-    secretKey: '',
-    enable: false,
-  },
-  notify: {
-    tgBotEnabled: false,
-    tgBotToken: '',
-    tgBotName: '',
-    tgSecret: '',
-  },
-  upload: {
-    imgStrategy: 'r2',
-    attachmentStrategy: 'r2',
-  },
+    websiteName: '极简论坛',
+    websiteUrl: '',
+    webBgimage: '',
+    websiteKeywords: '极简,论坛,极简论坛',
+    websiteDescription: '极简论坛',
+    favicon: '',
+    pointPerPost: 5,
+    pointPerPostByDay: 20,
+    pointPerComment: 1,
+    pointPerCommentByDay: 20,
+    pointPerLikeOrDislike: 1,
+    pointPerDaySignInMin: 1,
+    pointPerDaySignInMax: 10,
+    websiteAnnouncement: ``,
+    css: '',
+    js: '',
+    postUrlFormat: {
+      type: 'UUID',
+      minNumber: 10000,
+      dateFormat: 'YYYYMMDDHHmmssSSS',
+    },
+    invite: false,
+    createInviteCodePoint: 100,
+    regWithEmailCodeVerify: false,
+    email: {
+      apiKey: '',
+      from: '',
+      to: '',
+      senderName: '',
+    },
+    turnstile: {
+      siteKey: '',
+      secretKey: '',
+      enable: false,
+    },
+    notify: {
+      tgBotEnabled: false,
+      tgBotToken: '',
+      tgBotName: '',
+      tgSecret: '',
+    },
+    upload: {
+      imgStrategy: 'r2',
+      attachmentStrategy: 'r2',
+    },
   }
 }
 
@@ -111,30 +85,31 @@ function applyConfig(config: Record<string, any> | null | undefined) {
   }
 }
 
-const {
-  data: configData,
-  status: configStatus,
-  error: configError,
-  refresh: refreshConfig,
-} = useFetch('/api/manage/config/get', {
-  method: 'POST',
-  default: () => ({ success: true, config: null }),
-})
+type ConfigStatus = 'idle' | 'pending' | 'success' | 'error'
 
-watch(() => configData.value?.config, (config) => {
-  applyConfig(config)
-}, { immediate: true })
+const configStatus = ref<ConfigStatus>('pending')
+const configError = ref<Error | null>(null)
 
-onMounted(async () => {
-  const { MdEditor } = await import('md-editor-v3')
-  mdEditorComponent.value = MdEditor
-})
+async function refreshConfig() {
+  configStatus.value = 'pending'
+  configError.value = null
 
-watch(configError, (error) => {
-  if (error) {
+  try {
+    const res = await $fetch<{ success: boolean, config?: Record<string, any> | null }>('/api/manage/config/get', {
+      method: 'POST',
+      timeout: 10000,
+    })
+    applyConfig(res.config)
+    configStatus.value = 'success'
+  }
+  catch (error) {
+    configError.value = error instanceof Error ? error : new Error('系统设置加载失败')
+    configStatus.value = 'error'
     console.error('加载系统设置失败', error)
   }
-})
+}
+
+onMounted(refreshConfig)
 
 function randomString(e: number) {
   e = e || 32
@@ -328,14 +303,7 @@ async function copyWebhook() {
       </div>
       <div class="flex flex-row space-x-2">
         <UFormGroup label="站点公告" name="websiteAnnouncement">
-          <ClientOnly>
-            <component
-              :is="mdEditorComponent" v-if="mdEditorComponent"
-              v-model="state.websiteAnnouncement" style="height:200px;" :theme="mode as any" :preview="false"
-              :toolbars="toolbars" editor-id="sysSettings" @on-upload-img="onUploadImg"
-            />
-            <div v-else class="h-[200px] rounded border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 animate-pulse" />
-          </ClientOnly>
+          <UTextarea v-model="state.websiteAnnouncement" :rows="8" />
         </UFormGroup>
       </div>
 
