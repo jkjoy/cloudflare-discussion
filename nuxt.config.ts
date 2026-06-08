@@ -12,7 +12,13 @@ export default defineNuxtConfig({
   },
 
   icon: {
-    mode: 'css',
+    localApiEndpoint: '/_icon',
+    serverBundle: {
+      collections: ['carbon', 'heroicons'],
+    },
+    clientBundle: {
+      scan: true,
+    },
   },
 
   devtools: {
@@ -31,9 +37,10 @@ export default defineNuxtConfig({
   nitro: {
     preset: 'cloudflare-module',
     // 开发时把 /api/ 和 /imgs/ 代理到 wrangler dev (默认 8787 端口)
+    // 注意：/_icon 是 @nuxt/icon 的本地端点，由 Nuxt 自己处理，不代理
     devProxy: {
-      '/api/': { target: 'http://localhost:8787/api/', changeOrigin: true },
-      '/imgs/': { target: 'http://localhost:8787/imgs/', changeOrigin: true },
+      '/api/': { target: 'http://localhost:8787/', changeOrigin: true },
+      '/imgs/': { target: 'http://localhost:8787/', changeOrigin: true },
     },
     // 含浏览器专属依赖的页面保持 SPA 渲染
     routeRules: {
