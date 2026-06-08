@@ -12,9 +12,7 @@ export default defineNuxtConfig({
   },
 
   icon: {
-    serverBundle: {
-      collections: ['carbon', 'heroicons'],
-    },
+    mode: 'css',
   },
 
   devtools: {
