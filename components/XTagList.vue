@@ -5,11 +5,9 @@ const props = defineProps<{
   selected?: string
 }>()
 
-const nuxtApp = useNuxtApp()
 const { data: tagData, pending: tagPending } = useFetch<{ tags: TagDTO[] }>('/api/go/list', {
   method: 'GET',
   key: 'allTagLists',
-  getCachedData: key => nuxtApp.payload.data[key],
   default: () => ({
     tags: [],
   }),

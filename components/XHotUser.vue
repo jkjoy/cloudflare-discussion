@@ -7,11 +7,9 @@ interface HotUserDTO {
   points: number
 }
 
-const nuxtApp = useNuxtApp()
 const { data: hotUsers } = useLazyFetch<HotUserDTO[]>('/api/member/hot', {
   method: 'GET',
   key: 'hotUsers',
-  getCachedData: key => nuxtApp.payload.data[key],
   default: () => [],
 })
 </script>
