@@ -6,19 +6,17 @@ const { data: configData } = await useFetch('/api/config', {
   method: 'GET',
 })
 
-const sysConfig = configData.value?.data as unknown as SysConfigDTO
+const sysConfig = (configData.value?.data as unknown as SysConfigDTO) ?? {} as SysConfigDTO
 
 const version = configData.value?.version
 
-global.value = { sysConfig, version: version! }
+global.value = { sysConfig, version: version || '' }
 
 useHead({
-  // as a string,
-  // where `%s` is replaced with the title
-  titleTemplate: `%s - ${global.value.sysConfig.websiteName}`,
+  titleTemplate: `%s - ${sysConfig?.websiteName || 'Discussion'}`,
   meta: [
-    { name: 'keywords', content: global.value.sysConfig.websiteKeywords },
-    { name: 'description', content: global.value.sysConfig.websiteDescription },
+    { name: 'keywords', content: sysConfig?.websiteKeywords || '' },
+    { name: 'description', content: sysConfig?.websiteDescription || '' },
   ],
 })
 </script>
