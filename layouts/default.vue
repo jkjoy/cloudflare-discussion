@@ -20,11 +20,11 @@ async function loadProfile() {
     userinfo.value = {} as UserDTO
     return
   }
-  const userinfoRes = await useFetch('/api/member/profile', {
+  const userinfoRes = await $fetch<UserDTO>('/api/member/profile', {
     method: 'POST',
   })
-  if (userinfoRes.data.value) {
-    userinfo.value = userinfoRes.data.value as UserDTO
+  if (userinfoRes) {
+    userinfo.value = userinfoRes
   }
 }
 const sysconfig = global.value?.sysConfig as SysConfigDTO
