@@ -1,6 +1,8 @@
 <script lang="ts" setup>
 import type { PostDTO } from '~/types'
 
+definePageMeta({ keepalive: true })
+
 interface PostListResponse {
   posts: PostDTO[]
   total: number
@@ -35,9 +37,17 @@ const { data, pending } = useLazyFetch<PostListResponse>(buildPostListUrl(state.
 })
 
 watch(() => route.fullPath, async () => {
+  if (route.path !== '/') return
   state.page = Number.parseInt(route.query.page as any as string) || 1
   state.key = route.query.key as any as string
   const res = await $fetch(buildPostListUrl(state.page, state.key as string), {
+    method: 'GET',
+  })
+  data.value = res
+})
+
+onActivated(async () => {
+  const res = await $fetch<PostListResponse>(buildPostListUrl(state.page, state.key as string), {
     method: 'GET',
   })
   data.value = res

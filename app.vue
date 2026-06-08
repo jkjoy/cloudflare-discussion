@@ -26,7 +26,7 @@ useHead({
 <template>
   <NuxtLoadingIndicator />
   <NuxtLayout>
-    <NuxtPage />
+    <NuxtPage :transition="{ name: 'page', mode: 'out-in' }" />
   </NuxtLayout>
   <UModals />
 </template>
@@ -38,5 +38,16 @@ body,
   width: 100%;
   height: 100%;
   @apply bg-slate-50 dark:bg-slate-800;
+}
+
+.page-enter-active {
+  transition: opacity 0.12s ease;
+}
+.page-leave-active {
+  transition: opacity 0.07s ease;
+}
+.page-enter-from,
+.page-leave-to {
+  opacity: 0;
 }
 </style>
