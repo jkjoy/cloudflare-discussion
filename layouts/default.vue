@@ -32,6 +32,7 @@ const sysconfig = global.value?.sysConfig as SysConfigDTO
 const version = String(config.public.appVersion || '1.0').replace(/^v/, '')
 
 userCardChanged.on(async () => {
+  if (!process.client) return
   if (!token.value) {
     userinfo.value = {} as UserDTO
     return
@@ -62,7 +63,9 @@ watch(token, async () => {
   }
 })
 
-void loadProfile()
+if (process.client) {
+  void loadProfile()
+}
 
 if (sysconfig.css) {
   useHead({
@@ -152,6 +155,7 @@ watch(() => route.fullPath, async (n) => {
   }
 })
 watch(() => route.fullPath, async () => {
+  if (!process.client) return
   if (route.fullPath.startsWith('/go/')) {
     const name = String(route.params.tag || '')
     if (!name) {
@@ -168,6 +172,7 @@ watch(() => route.fullPath, async () => {
 const color = useColorMode()
 const theme = ref<'light' | 'dark'>(color.value === 'dark' ? 'dark' : 'light')
 themeChanged.on((val) => {
+  if (!process.client) return
   theme.value = val === 'dark' ? 'dark' : 'light'
 })
 

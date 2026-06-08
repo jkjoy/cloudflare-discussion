@@ -1,3 +1,7 @@
+// 由 `nuxt build` 生成，部署前必须先跑 nuxt build
+// @ts-expect-error - 构建产物，TS 无法提前识别
+import nuxtHandler from '../../.output/server/index.mjs'
+
 import { defaultSysConfig } from './config.ts'
 
 interface D1PreparedLike {
@@ -133,11 +137,8 @@ export default {
       return handleApi(request, env, url, ctx)
     }
 
-    if (env.ASSETS) {
-      return env.ASSETS.fetch(request)
-    }
-
-    return new Response('Not Found', { status: 404 })
+    // 页面路由交给 Nuxt SSR 渲染（API 和图片路由已在上面处理）
+    return nuxtHandler.fetch(request, env, ctx)
   },
 }
 

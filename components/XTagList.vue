@@ -6,7 +6,7 @@ const props = defineProps<{
 }>()
 
 const nuxtApp = useNuxtApp()
-const { data: tagData, pending: tagPending } = useLazyFetch<{ tags: TagDTO[] }>('/api/go/list', {
+const { data: tagData, pending: tagPending } = useFetch<{ tags: TagDTO[] }>('/api/go/list', {
   method: 'GET',
   key: 'allTagLists',
   getCachedData: key => nuxtApp.payload.data[key],

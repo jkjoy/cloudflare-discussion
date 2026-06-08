@@ -59,14 +59,16 @@ function showSlider() {
         </div>
       </a>
       <div class="flex items-center gap-1 ml-auto ">
-        <UIcon
-          v-if="mode === 'light'" dynamic name="i-line-md-moon-rising-loop"
-          class="text-yellow-500 cursor-pointer size-6" @click="toggleMode"
-        />
-        <UIcon
-          v-else dynamic name="i-line-md-moon-filled-alt-to-sunny-filled-loop-transition"
-          class="text-yellow-500 cursor-pointer size-6" @click="toggleMode"
-        />
+        <ClientOnly>
+          <UIcon
+            v-if="mode === 'light'" dynamic name="i-line-md-moon-rising-loop"
+            class="text-yellow-500 cursor-pointer size-6" @click="toggleMode"
+          />
+          <UIcon
+            v-else dynamic name="i-line-md-moon-filled-alt-to-sunny-filled-loop-transition"
+            class="text-yellow-500 cursor-pointer size-6" @click="toggleMode"
+          />
+        </ClientOnly>
         <div class="cursor-pointer hidden md:flex gap-1 items-center p-2 hover:text-primary/80" @click="go2Home">
           <UIcon name="i-carbon-home" class="size-6 md:size-4" />
           <span class="hidden md:block">首页</span>

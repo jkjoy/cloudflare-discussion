@@ -28,7 +28,10 @@ const state = reactive({
 })
 
 state.page = Number.parseInt(route.query.page as any as string) || 1
-const { data, pending } = useLazyFetch<PostListResponse>(buildPostListUrl(state.page, state.key as string), {
+const nuxtApp = useNuxtApp()
+const { data, pending } = useFetch<PostListResponse>(buildPostListUrl(state.page, state.key as string), {
+  key: `postList-p${state.page}-k${String(state.key || '')}`,
+  getCachedData: key => nuxtApp.payload.data[key],
   method: 'GET',
   default: () => ({
     posts: [],

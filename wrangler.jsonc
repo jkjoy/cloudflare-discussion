@@ -8,8 +8,7 @@
   },
   "assets": {
     "directory": ".output/public",
-    "binding": "ASSETS",
-    "not_found_handling": "single-page-application"
+    "binding": "ASSETS"
   },
   "d1_databases": [
     {
