@@ -1,0 +1,144 @@
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  .sl-wrap { background: #f8fafc; min-height: 100vh; width: 100%; }
+  .sl-header {
+    background: white;
+    box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    padding: 4px 8px;
+  }
+  .sl-header-inner {
+    max-width: 1080px;
+    margin: 0 auto;
+    height: 36px;
+    display: flex;
+    align-items: center;
+  }
+  .sl-main {
+    max-width: 1080px;
+    margin: 8px auto 0;
+    padding: 0 0;
+    display: flex;
+    gap: 16px;
+  }
+  .sl-card {
+    flex: 1;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .sl-tag-row {
+    padding: 8px 16px;
+    display: flex;
+    gap: 8px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .sl-tag {
+    height: 22px;
+    width: 56px;
+    border-radius: 4px;
+  }
+  .sl-row {
+    padding: 10px 16px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .sl-row:last-child { border-bottom: none; }
+  .sl-line {
+    height: 13px;
+    border-radius: 4px;
+    margin-bottom: 7px;
+  }
+  .sl-line:last-child { margin-bottom: 0; }
+  .sl-bar {
+    height: 20px;
+    width: 110px;
+    border-radius: 4px;
+  }
+  .sl-side {
+    width: 300px;
+    flex-shrink: 0;
+    display: none;
+  }
+  @media (min-width: 768px) { .sl-side { display: block; } }
+  .sl-side-card {
+    background: white;
+    border-radius: 8px;
+    margin-top: 8px;
+    padding: 12px 16px;
+  }
+  .sl-side-line {
+    height: 12px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+  }
+
+  /* pulse animation */
+  .sl-pulse {
+    background: #e2e8f0;
+    animation: sl-pulse 1.5s cubic-bezier(.4,0,.6,1) infinite;
+  }
+  @keyframes sl-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .45; }
+  }
+
+  /* dark mode */
+  html.dark .sl-wrap { background: #1e293b; }
+  html.dark .sl-header { background: #0f172a; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+  html.dark .sl-card { background: #1e293b; border: 1px solid #334155; }
+  html.dark .sl-tag-row { border-bottom-color: #334155; }
+  html.dark .sl-row { border-bottom-color: #334155; }
+  html.dark .sl-side-card { background: #1e293b; border: 1px solid #334155; }
+  html.dark .sl-pulse { background: #334155; }
+</style>
+
+<div class="sl-wrap">
+  <div class="sl-header">
+    <div class="sl-header-inner">
+      <div class="sl-bar sl-pulse"></div>
+    </div>
+  </div>
+  <div class="sl-main">
+    <div class="sl-card">
+      <div class="sl-tag-row">
+        <div class="sl-tag sl-pulse"></div>
+        <div class="sl-tag sl-pulse" style="width:48px"></div>
+        <div class="sl-tag sl-pulse" style="width:64px"></div>
+        <div class="sl-tag sl-pulse" style="width:52px"></div>
+      </div>
+      <div class="sl-row">
+        <div class="sl-line sl-pulse" style="width:65%"></div>
+        <div class="sl-line sl-pulse" style="width:40%"></div>
+      </div>
+      <div class="sl-row">
+        <div class="sl-line sl-pulse" style="width:72%"></div>
+        <div class="sl-line sl-pulse" style="width:38%"></div>
+      </div>
+      <div class="sl-row">
+        <div class="sl-line sl-pulse" style="width:58%"></div>
+        <div class="sl-line sl-pulse" style="width:45%"></div>
+      </div>
+      <div class="sl-row">
+        <div class="sl-line sl-pulse" style="width:80%"></div>
+        <div class="sl-line sl-pulse" style="width:32%"></div>
+      </div>
+      <div class="sl-row">
+        <div class="sl-line sl-pulse" style="width:61%"></div>
+        <div class="sl-line sl-pulse" style="width:50%"></div>
+      </div>
+      <div class="sl-row">
+        <div class="sl-line sl-pulse" style="width:75%"></div>
+        <div class="sl-line sl-pulse" style="width:36%"></div>
+      </div>
+    </div>
+    <div class="sl-side">
+      <div class="sl-side-card">
+        <div class="sl-side-line sl-pulse" style="width:80%"></div>
+        <div class="sl-side-line sl-pulse" style="width:60%"></div>
+        <div class="sl-side-line sl-pulse" style="width:70%"></div>
+      </div>
+    </div>
+  </div>
+</div>
