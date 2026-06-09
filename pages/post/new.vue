@@ -84,6 +84,13 @@ function restoreDraft() {
   }
 }
 
+function getReadRoleLabel(selected: any) {
+  if (selected && typeof selected === 'object') {
+    return selected.desc ?? selected.label ?? ''
+  }
+  return readRoleList.value.find(item => item.id === selected)?.desc ?? ''
+}
+
 const state = reactive<Schema>({
   pid: '',
   title: '',
@@ -197,8 +204,14 @@ onUnmounted(() => {
         <UFormGroup label="标签" name="tags" required>
           <USelectMenu v-model="state.tagId" value-attribute="id" option-attribute="desc" :options="tags" />
         </UFormGroup>
-        <UFormGroup label="阅读限制" name="tags" required>
-          <USelectMenu v-model="state.readRole" value-attribute="id" option-attribute="desc" :options="readRoleList" />
+        <UFormGroup label="阅读限制" name="readRole" required>
+          <USelectMenu v-model="state.readRole" value-attribute="id" option-attribute="desc" :options="readRoleList">
+            <template #label="{ selected }">
+              <span class="truncate">
+                {{ getReadRoleLabel(selected) || '请选择阅读限制' }}
+              </span>
+            </template>
+          </USelectMenu>
         </UFormGroup>
         <UFormGroup label="正文" name="content" required>
           <ClientOnly>
