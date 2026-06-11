@@ -2,7 +2,9 @@
 import nuxtHandler from '../../.output/server/index.mjs'
 
 import type { CurrentUser, Env, ExecutionContextLike } from './types'
-import { json, readBody, nowIso, getPage, getSize, randomId, hashPassword, sha256Hex, getUserLevelByPoint, normalizeEmail, queryPointSum, DAY_MS } from './utils'
+import { json, readBody, nowIso, getPage, getSize, randomId, sha256Hex, getUserLevelByPoint, normalizeEmail, DAY_MS } from './utils'
+import { hashPassword } from './auth'
+import { queryPointSum } from './post'
 import { all, first, run, queryCount } from './db'
 import { getCurrentUser, isAdmin, buildCookie, expireCookie, getTokenKey, mapCurrentUser, sanitizeUser, ensureUserSecretKey } from './auth'
 import { defaultSysConfig, getSysConfig, getPublicSysConfig, saveSysConfig } from './config'
