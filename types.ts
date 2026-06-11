@@ -60,7 +60,7 @@ export const createPostSchema = z.object({
   payPoint: z.number().optional(),
 }).refine(data => getLength(data.content) >= 6, {
   message: '内容最少6个字符,中文一个算2个字符',
-  path: ['username'],
+  path: ['content'],
 })
 
 export interface JwtPayload {
@@ -195,14 +195,14 @@ export interface SysConfigDTO {
     minNumber: number
     dateFormat: string
   }
-  invite: string
+  invite: boolean
   createInviteCodePoint: number
   email: {
     apiKey: string
     from: string
     senderName: string
     to: string
-  }
+  } | null
   regWithEmailCodeVerify: boolean
   turnstile: {
     siteKey: string
@@ -210,7 +210,7 @@ export interface SysConfigDTO {
     enable: boolean
   }
   notify: {
-    tgBotEnabled: false
+    tgBotEnabled: boolean
     tgBotToken: string
     tgBotName: string
     tgSecret: string

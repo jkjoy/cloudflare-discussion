@@ -18,6 +18,13 @@ const state = reactive({
   dislikeCount: props.dislikeCount,
 })
 
+watch(() => [props.like, props.dislike, props.likeCount, props.dislikeCount], ([like, dislike, likeCount, dislikeCount]) => {
+  state.like = like
+  state.dislike = dislike
+  state.likeCount = likeCount
+  state.dislikeCount = dislikeCount
+})
+
 function updateQo(create = true) {
   y.value = 999999999999
   commentQuoted.emit({

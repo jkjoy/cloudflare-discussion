@@ -15,53 +15,49 @@ const sliderOpen = useState('sliderOpen', () => {
 
 const global = useGlobalConfig()
 
-async function loadProfile() {
-  if (!token.value) {
-    userinfo.value = {} as UserDTO
-    return
-  }
-  const userinfoRes = await $fetch<UserDTO>('/api/member/profile', {
-    method: 'POST',
-  })
-  if (userinfoRes) {
-    userinfo.value = userinfoRes
-  }
-}
-const sysconfig = computed(() => (global.value?.sysConfig ?? {}) as SysConfigDTO)
-// 版本号来自构建时注入的 NUXT_PUBLIC_APP_VERSION(deploy 时等于 git tag),去掉前导 v 以配合页脚已有的 "版本v" 前缀
-const version = String(config.public.appVersion || '1.0').replace(/^v/, '')
+let profileLoadPending = false
+let profileLoadTimer: ReturnType<typeof setTimeout> | null = null
 
-userCardChanged.on(async () => {
+async function loadProfile(immediate = false) {
   if (!process.client) return
   if (!token.value) {
     userinfo.value = {} as UserDTO
     return
   }
-  const userinfoRes = await $fetch('/api/member/profile', {
-    method: 'POST',
-  })
-  if (userinfoRes) {
-    userinfo.value = userinfoRes as UserDTO
-    if (userinfo.value.unRead > 0) {
-      const title = useTitle()
-      title.value = `${title.value}(${userinfo.value.unRead})`
-    }
-  }
-})
+  if (profileLoadPending && !immediate) return
 
-watch(token, async () => {
-  if (token.value) {
-    const userinfoRes = await $fetch('/api/member/profile', {
+  if (!immediate) {
+    if (profileLoadTimer) clearTimeout(profileLoadTimer)
+    await new Promise<void>(resolve => {
+      profileLoadTimer = setTimeout(resolve, 300)
+    })
+  }
+
+  profileLoadPending = true
+  try {
+    const userinfoRes = await $fetch<UserDTO>('/api/member/profile', {
       method: 'POST',
     })
     if (userinfoRes) {
-      userinfo.value = userinfoRes as UserDTO
+      userinfo.value = userinfoRes
+      if (userinfoRes.unRead > 0) {
+        const title = useTitle()
+        title.value = `${title.value}(${userinfoRes.unRead})`
+      }
     }
   }
-  else {
-    userinfo.value = {} as UserDTO
+  finally {
+    profileLoadPending = false
   }
-})
+}
+
+const sysconfig = computed(() => (global.value?.sysConfig ?? {}) as SysConfigDTO)
+// 版本号来自构建时注入的 NUXT_PUBLIC_APP_VERSION(deploy 时等于 git tag),去掉前导 v 以配合页脚已有的 "版本v" 前缀
+const version = String(config.public.appVersion || '1.0').replace(/^v/, '')
+
+userCardChanged.on(() => loadProfile())
+
+watch(token, () => loadProfile(true))
 
 if (process.client) {
   void loadProfile()
