@@ -16,7 +16,7 @@ jobs:
         with:
           node-version: 22
       - name: Install dependencies
-        run: npm install --package-lock=false
+        run: npm ci
       - name: Apply D1 migrations
         run: npm run d1:migrate:remote
         env:
