@@ -34,7 +34,6 @@ export default defineNuxtConfig({
       tokenKey: 'discussion_token',
       avatarCdn: 'https://gravatar.cooluc.com/avatar/',
       cookieSecure: false,
-      appVersion: '1.0',
     },
   },
 

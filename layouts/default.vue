@@ -2,6 +2,7 @@
 import { useTitle } from '@vueuse/core'
 import { Toaster } from 'vue-sonner'
 import type { SysConfigDTO, TagDTO, UserDTO } from '~/types'
+import { APP_VERSION } from '~/version'
 
 const userinfo = useState<UserDTO>('userinfo', () => ({} as UserDTO))
 const keyWords = ref('')
@@ -61,8 +62,7 @@ async function loadProfile(immediate = false) {
 }
 
 const sysconfig = computed(() => (global.value?.sysConfig ?? {}) as SysConfigDTO)
-// 版本号来自构建时注入的 NUXT_PUBLIC_APP_VERSION(deploy 时等于 git tag),去掉前导 v 以配合页脚已有的 "版本v" 前缀
-const version = String(config.public.appVersion || '1.0').replace(/^v/, '')
+const version = APP_VERSION.replace(/^v/, '')
 
 userCardChanged.on(() => loadProfile())
 

@@ -1,9 +1,7 @@
 <script lang="ts" setup>
-withDefaults(defineProps<{
+defineProps<{
   version: string
-}>(), {
-  version: '1.0',
-})
+}>()
 
 const currentYear = new Date().getFullYear()
 </script>

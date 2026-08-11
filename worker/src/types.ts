@@ -47,7 +47,6 @@ export interface Env {
   TOKEN_KEY?: string
   AVATAR_CDN?: string
   COOKIE_SECURE?: string
-  APP_VERSION?: string
 }
 
 export interface CurrentUser {

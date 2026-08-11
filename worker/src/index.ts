@@ -18,6 +18,7 @@ import { handleTelegramWebhook } from './telegram'
 import { verifyTurnstile } from './turnstile'
 import { isEmailSendRateLimited, saveEmailCodeRecord, sendResendEmail, buildRegisterEmailHtml, buildResetPasswordEmailHtml } from './email'
 import { buildManageComment } from './manage'
+import { APP_VERSION } from '../../version'
 
 const PUBLIC_API_PATHS = new Set([
   '/api/config',
@@ -91,10 +92,10 @@ async function handleApi(request: Request, env: Env, url: URL, ctx: ExecutionCon
 
   if (pathname === '/api/version') {
     if (method === 'GET') {
-      return respondWithEdgeCache(request, ctx, 300, async () => buildVersionResponse(env))
+      return respondWithEdgeCache(request, ctx, 300, async () => buildVersionResponse())
     }
     if (method === 'POST') {
-      return buildVersionResponse(env)
+      return buildVersionResponse()
     }
   }
 
@@ -369,14 +370,14 @@ async function buildConfigResponse(env: Env) {
   return json({
     success: true,
     data: getPublicSysConfig(config),
-    version: env.APP_VERSION || '1.0',
+    version: APP_VERSION,
   }, headers)
 }
 
-async function buildVersionResponse(env: Env) {
+async function buildVersionResponse() {
   return json({
     success: true,
-    version: env.APP_VERSION || '1.0',
+    version: APP_VERSION,
   })
 }
 
