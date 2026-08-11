@@ -204,6 +204,18 @@ async function handleApi(request: Request, env: Env, url: URL, ctx: ExecutionCon
     return handleMemberPoint(request, env, currentUser)
   }
 
+  if (pathname === '/api/member/sendEmail' && method === 'POST') {
+    return handleSendEmail(request, env)
+  }
+
+  if (pathname === '/api/member/sendForgotPasswordEmail' && method === 'POST') {
+    return handleSendForgotPasswordEmail(request, env)
+  }
+
+  if (pathname === '/api/member/resetPwd' && method === 'POST') {
+    return handleResetPwd(request, env)
+  }
+
   const memberMatch = pathname.match(/^\/api\/member\/([^/]+)$/)
   if (memberMatch && method === 'POST') {
     const username = decodeURIComponent(memberMatch[1])
@@ -284,20 +296,8 @@ async function handleApi(request: Request, env: Env, url: URL, ctx: ExecutionCon
     return handleManageDeleteComment(env, currentUser, url)
   }
 
-  if (pathname === '/api/member/sendEmail' && method === 'POST') {
-    return handleSendEmail(request, env)
-  }
-
   if (pathname === '/api/manage/testEmail' && method === 'POST') {
     return handleTestEmail(request, env, currentUser)
-  }
-
-  if (pathname === '/api/member/sendForgotPasswordEmail' && method === 'POST') {
-    return handleSendForgotPasswordEmail(request, env)
-  }
-
-  if (pathname === '/api/member/resetPwd' && method === 'POST') {
-    return handleResetPwd(request, env)
   }
 
   if (pathname === '/api/imgs/upload' && method === 'POST') {

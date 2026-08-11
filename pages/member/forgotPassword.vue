@@ -9,6 +9,17 @@ const state = reactive({
   repeatPassword: '',
 })
 const pending = ref(false)
+const resetting = ref(false)
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error && typeof error === 'object' && 'data' in error) {
+    const data = error.data
+    if (data && typeof data === 'object' && 'message' in data && typeof data.message === 'string') {
+      return data.message
+    }
+  }
+  return error instanceof Error && error.message ? error.message : fallback
+}
 
 async function sendResetPwdEmail() {
   if (!state.identify) {
@@ -16,18 +27,25 @@ async function sendResetPwdEmail() {
     return
   }
   pending.value = true
-  const result = await $fetch('/api/member/sendForgotPasswordEmail', {
-    method: 'POST',
-    body: JSON.stringify({ identify: state.identify }),
-  })
-  if (result?.success) {
-    toast.success(result?.message)
-    state.emailCodeKey = result?.emailCodeKey
+  try {
+    const result = await $fetch('/api/member/sendForgotPasswordEmail', {
+      method: 'POST',
+      body: { identify: state.identify },
+    })
+    if (result?.success) {
+      toast.success(result.message || '发送邮件成功')
+      state.emailCodeKey = result.emailCodeKey || ''
+    }
+    else {
+      toast.error(result?.message || '发送重置邮件失败')
+    }
   }
-  else {
-    toast.error(result?.message)
+  catch (error) {
+    toast.error(getErrorMessage(error, '发送重置邮件失败'))
   }
-  pending.value = false
+  finally {
+    pending.value = false
+  }
 }
 
 async function doResetPwd() {
@@ -44,16 +62,26 @@ async function doResetPwd() {
     toast.error('两次密码不一致')
     return
   }
-  const { success, message } = await $fetch('/api/member/resetPwd', {
-    method: 'POST',
-    body: JSON.stringify(state),
-  })
-  if (success) {
-    toast.success('修改成功,快去登录吧')
-    navigateTo('/member/login')
+
+  resetting.value = true
+  try {
+    const { success, message } = await $fetch('/api/member/resetPwd', {
+      method: 'POST',
+      body: state,
+    })
+    if (success) {
+      toast.success('修改成功,快去登录吧')
+      await navigateTo('/member/login')
+    }
+    else {
+      toast.error(message || '重置密码失败')
+    }
   }
-  else {
-    toast.error(message)
+  catch (error) {
+    toast.error(getErrorMessage(error, '重置密码失败'))
+  }
+  finally {
+    resetting.value = false
   }
 }
 </script>
@@ -83,7 +111,7 @@ async function doResetPwd() {
           <UFormGroup label="重复新密码" name="repeatPassword">
             <UInput v-model="state.repeatPassword" autocomplete="off" type="password" />
           </UFormGroup>
-          <UButton @click="doResetPwd">
+          <UButton :loading="resetting" :disabled="resetting" @click="doResetPwd">
             修改密码
           </UButton>
         </template>
