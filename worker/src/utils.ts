@@ -2,13 +2,17 @@ import type { EmailConfig } from './types'
 
 export const DAY_MS = 24 * 60 * 60 * 1000
 
-export function json(data: any, headers?: Headers) {
+export function json(data: any, headers?: Headers, status = 200) {
   const responseHeaders = headers || new Headers()
   responseHeaders.set('content-type', 'application/json; charset=utf-8')
   return new Response(JSON.stringify(data), {
-    status: 200,
+    status,
     headers: responseHeaders,
   })
+}
+
+export function jsonError(message: string, status: number) {
+  return json({ success: false, message }, undefined, status)
 }
 
 export async function readBody(request: Request) {

@@ -100,12 +100,19 @@ async function refreshConfig() {
   configError.value = null
 
   try {
-    const res = await $fetch<{ success: boolean, config?: Record<string, any> | null }>('/api/manage/config/get', {
+    const res = await $fetch<{
+      success: boolean
+      config?: Record<string, any> | null
+      message?: string
+    }>('/api/manage/config/get', {
       method: 'POST',
       timeout: 10000,
     })
     if (requestId !== configRequestId) {
       return
+    }
+    if (!res.success || !res.config) {
+      throw new Error(res.message || '系统设置加载失败')
     }
     applyConfig(res.config)
     hasLoadedConfig.value = true
@@ -115,7 +122,7 @@ async function refreshConfig() {
     if (requestId !== configRequestId) {
       return
     }
-    configError.value = error instanceof Error ? error : new Error('系统设置加载失败')
+    configError.value = new Error(getApiErrorMessage(error, '系统设置加载失败'))
     configStatus.value = 'error'
     console.error('加载系统设置失败', error)
   }
@@ -161,10 +168,16 @@ async function persistSettings(options: { reload?: boolean, successMessage?: str
     attachmentStrategy: 'r2',
   }
 
-  await $fetch('/api/manage/config/save', {
-    method: 'POST',
-    body: JSON.stringify(state),
-  })
+  try {
+    assertApiSuccess(await $fetch('/api/manage/config/save', {
+      method: 'POST',
+      body: state,
+    }), '保存系统设置失败')
+  }
+  catch (error) {
+    toast.error(getApiErrorMessage(error, '保存系统设置失败'))
+    return false
+  }
 
   if (successMessage) {
     toast.success(successMessage)
@@ -207,17 +220,22 @@ const emailSending = ref(false)
 
 async function testEmail() {
   emailSending.value = true
-  const { success, message } = await $fetch('/api/manage/testEmail', {
-    method: 'POST',
-    body: JSON.stringify({ email: state.email }),
-  })
-  if (success) {
-    toast.success('发送成功')
+  try {
+    const saved = await persistSettings({ reload: false, successMessage: '' })
+    if (!saved) {
+      return
+    }
+    assertApiSuccess(await $fetch('/api/manage/testEmail', {
+      method: 'POST',
+    }), '测试邮件发送失败')
+    toast.success('配置已保存，测试邮件发送成功')
   }
-  else {
-    toast.error(message)
+  catch (error) {
+    toast.error(getApiErrorMessage(error, '测试邮件发送失败'))
   }
-  emailSending.value = false
+  finally {
+    emailSending.value = false
+  }
 }
 
 const { copy } = useCopyToClipboard()
@@ -425,7 +443,7 @@ async function copyWebhook() {
             <UButtonGroup size="sm" orientation="horizontal" class="my-2">
               <UInput v-model="state.email.to" placeholder="测试邮件接收地址" />
               <UButton class="w-fit " size="xs" :loading="emailSending" @click="testEmail">
-                测试发送邮件
+                保存并测试邮件
               </UButton>
             </UButtonGroup>
           </div>

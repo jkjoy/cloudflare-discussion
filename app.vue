@@ -2,40 +2,32 @@
 import type { SysConfigDTO } from './types'
 
 const global = useGlobalConfig()
-const { data: configData } = await useFetch('/api/config', {
+const { data: configData } = useFetch<{ data: SysConfigDTO, version: string }>('/api/config', {
   method: 'GET',
+  server: false,
 })
 
-const sysConfig = (configData.value?.data as unknown as SysConfigDTO) ?? {} as SysConfigDTO
-const version = configData.value?.version
-
-global.value = { sysConfig, version: version || '' }
-
-useHead({
-  titleTemplate: `%s - ${sysConfig?.websiteName || 'Discussion'}`,
-  meta: [
-    { name: 'keywords', content: sysConfig?.websiteKeywords || '' },
-    { name: 'description', content: sysConfig?.websiteDescription || '' },
-  ],
-})
-
-// SSR 时 config 可能拿不到（开发环境 API 未启动），客户端挂载后补充加载
-onMounted(async () => {
-  if (global.value.sysConfig?.websiteName) return
-  try {
-    const res = await $fetch<{ data: SysConfigDTO, version: string }>('/api/config')
-    if (res?.data) {
-      global.value = { sysConfig: res.data, version: res.version || '' }
-    }
+watch(configData, (response) => {
+  if (response?.data) {
+    global.value = { sysConfig: response.data, version: response.version || '' }
   }
-  catch {}
-})
+}, { immediate: true })
+
+const sysConfig = computed(() => global.value.sysConfig ?? {} as SysConfigDTO)
+
+useHead(computed(() => ({
+  titleTemplate: `%s - ${sysConfig.value?.websiteName || 'Discussion'}`,
+  meta: [
+    { name: 'keywords', content: sysConfig.value?.websiteKeywords || '' },
+    { name: 'description', content: sysConfig.value?.websiteDescription || '' },
+  ],
+})))
 </script>
 
 <template>
   <NuxtLoadingIndicator />
   <NuxtLayout>
-    <NuxtPage :transition="{ name: 'page', mode: 'out-in' }" />
+    <NuxtPage :transition="{ name: 'page' }" />
   </NuxtLayout>
   <UModals />
 </template>

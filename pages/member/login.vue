@@ -15,6 +15,7 @@ const state = reactive<Schema>({
   username: '',
 })
 const pending = ref(false)
+const route = useRoute()
 const global = useGlobalConfig()
 const sysconfig = global.value?.sysConfig as SysConfigDTO
 const turnstileRef = ref<{ execute: () => Promise<string> } | null>(null)
@@ -34,15 +35,20 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 }
 
 async function login(data: Schema, token: string = '') {
-  const result = await $fetch('/api/member/login', {
+  const result = await $fetch<{
+    success: boolean
+    tokenKey?: string
+    message?: string
+  }>('/api/member/login', {
     method: 'POST',
-    body: JSON.stringify({ ...data, token }),
+    body: { ...data, token },
   })
-  if (result.success && 'tokenKey' in result) {
+  if (result.success && result.tokenKey) {
     toast.success(`登录成功,自动跳转中...`)
-    location.href = '/'
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
+    location.href = redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : '/'
   }
-  else if ('message' in result) {
+  else if (result.message) {
     toast.error(`登录失败,${result.message}`)
   }
 }

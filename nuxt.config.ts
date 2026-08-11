@@ -1,5 +1,9 @@
 export default defineNuxtConfig({
-  ssr: true,
+  ssr: false,
+
+  experimental: {
+    emitRouteChunkError: 'automatic',
+  },
 
   colorMode: {
     storageKey: 'vueuse-color-scheme',
@@ -41,11 +45,6 @@ export default defineNuxtConfig({
     devProxy: {
       '/api/': { target: 'http://localhost:8787/', changeOrigin: true },
       '/imgs/': { target: 'http://localhost:8787/', changeOrigin: true },
-    },
-    // 含浏览器专属依赖的页面保持 SPA 渲染
-    routeRules: {
-      '/post/**': { ssr: false },
-      '/manage/**': { ssr: false },
     },
   },
 

@@ -46,6 +46,15 @@ async function loadProfile(immediate = false) {
       }
     }
   }
+  catch (error) {
+    const status = error && typeof error === 'object' && 'statusCode' in error
+      ? Number(error.statusCode)
+      : 0
+    if (status === 401) {
+      token.value = null
+      userinfo.value = {} as UserDTO
+    }
+  }
   finally {
     profileLoadPending = false
   }

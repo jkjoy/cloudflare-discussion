@@ -57,16 +57,29 @@ const columns = [{
   key: 'actions',
 }]
 
-page.value = Number.parseInt(route.query.page as any as string) || 1
-const { data: tagListRes } = await useFetch('/api/manage/tagList', {
+interface TagListResponse {
+  success: boolean
+  message?: string
+  tags?: TagDTO[]
+  total?: number
+}
+
+const {
+  data: tagListRes,
+  pending,
+  errorMessage,
+  execute: reload,
+} = useApiRequest(() => $fetch<TagListResponse>('/api/manage/tagList', {
   method: 'POST',
-  body: JSON.stringify({
+  body: {
     page: page.value,
     size: size.value,
-  }),
-})
-const tagList = computed(() => tagListRes?.value?.tags as any as TagDTO[])
-const total = computed(() => tagListRes?.value?.total as number)
+  },
+}), '标签列表加载失败')
+const tagList = computed(() => tagListRes.value?.tags ?? [])
+const total = computed(() => tagListRes.value?.total ?? 0)
+
+onMounted(reload)
 
 async function saveTag() {
   if (!saveState.enName.trim() || !saveState.name.trim() || !saveState.desc.trim()) {
@@ -74,50 +87,38 @@ async function saveTag() {
     return
   }
   try {
-    const res = await $fetch('/api/manage/saveTag', {
+    const res = assertApiSuccess(await $fetch('/api/manage/saveTag', {
       method: 'POST',
-      body: JSON.stringify(saveState),
-    })
-    if (!res.success) {
-      toast.error(res.message || '保存失败')
-      return
-    }
+      body: saveState,
+    }), '保存失败')
     isOpen.value = false
-    await reload(page.value)
+    await reload()
     await refreshNuxtData(['hotTagLists', 'allTagLists'])
     toast.success('保存成功')
   }
-  catch (error: any) {
-    toast.error(error?.data?.message || error?.message || '保存失败')
+  catch (error) {
+    toast.error(getApiErrorMessage(error, '保存失败'))
   }
 }
 
 async function toggleHot(tag: TagDTO) {
-  await $fetch('/api/manage/toggleHot', {
-    method: 'POST',
-    body: JSON.stringify({
-      id: tag.id,
-    }),
-  })
-  await reload(page.value)
-  await refreshNuxtData(['hotTagLists', 'allTagLists'])
+  try {
+    assertApiSuccess(await $fetch('/api/manage/toggleHot', {
+      method: 'POST',
+      body: { id: tag.id },
+    }), '更新热门状态失败')
+    await reload()
+    await refreshNuxtData(['hotTagLists', 'allTagLists'])
+  }
+  catch (error) {
+    toast.error(getApiErrorMessage(error, '更新热门状态失败'))
+  }
 }
 
-watch(() => route.fullPath, async () => {
-  const page = Number.parseInt(route.query.page as any as string)
-  await reload(page)
+watch(() => route.query.page, () => {
+  page.value = Number.parseInt(String(route.query.page || '1')) || 1
+  void reload()
 })
-
-async function reload(page: number) {
-  const res = await $fetch('/api/manage/tagList', {
-    method: 'POST',
-    body: JSON.stringify({
-      page,
-      size: size.value,
-    }),
-  })
-  tagListRes.value = res
-}
 </script>
 
 <template>
@@ -127,7 +128,8 @@ async function reload(page: number) {
         新增标签
       </UButton>
     </template>
-    <UTable :rows="tagList" :columns="columns">
+    <XManageDataState :pending="pending" :error="errorMessage" @retry="reload">
+      <UTable :rows="tagList" :columns="columns">
       <template #avatarUrl-data="{ row }">
         <NuxtLink :to="`/member/${row.username}`">
           <UAvatar :src="getAvatarUrl(row.avatarUrl!, row.headImg)" size="lg" alt="Avatar" />
@@ -146,7 +148,8 @@ async function reload(page: number) {
       <template #hot-data="{ row }">
         {{ row.hot ? '是' : '否' }}
       </template>
-    </UTable>
+      </UTable>
+    </XManageDataState>
     <template #footer>
       <UPagination
         v-if="total > size" v-model="page" size="sm" :to="(page: number) => ({

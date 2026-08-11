@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { toast } from 'vue-sonner'
-import type { UserDTO } from '~/types'
+import type { TitleDTO, UserDTO } from '~/types'
 
 const route = useRoute()
 definePageMeta({
@@ -9,14 +9,16 @@ definePageMeta({
 const selectedUid = ref('')
 
 async function banUser(day: number) {
-  await $fetch('/api/manage/member/banUser', {
-    method: 'POST',
-    body: JSON.stringify({
-      day,
-      uid: selectedUid.value,
-    }),
-  })
-  await reload()
+  try {
+    assertApiSuccess(await $fetch('/api/manage/member/banUser', {
+      method: 'POST',
+      body: { day, uid: selectedUid.value },
+    }), '禁言操作失败')
+    await reload()
+  }
+  catch (error) {
+    toast.error(getApiErrorMessage(error, '禁言操作失败'))
+  }
 }
 
 const items = [
@@ -88,39 +90,68 @@ const columns = [{
 }]
 
 async function revokeBanned(row: UserDTO) {
-  await $fetch('/api/manage/member/revokeBanUser', {
-    method: 'POST',
-    body: JSON.stringify({
-      uid: row.uid,
-    }),
-  })
-  await reload()
+  try {
+    assertApiSuccess(await $fetch('/api/manage/member/revokeBanUser', {
+      method: 'POST',
+      body: { uid: row.uid },
+    }), '撤销禁言失败')
+    await reload()
+  }
+  catch (error) {
+    toast.error(getApiErrorMessage(error, '撤销禁言失败'))
+  }
 }
 
-const { data: userListRes } = await useFetch('/api/manage/userList', {
-  method: 'POST',
-  body: JSON.stringify(state),
-})
-const userList = computed(() => userListRes?.value?.users as any as UserDTO[])
-const total = computed(() => userListRes?.value?.total as number)
-
-async function reload() {
-  const res = await $fetch('/api/manage/userList', {
-    method: 'POST',
-    body: JSON.stringify(state),
-  })
-  userListRes.value = res
+interface UserListResponse {
+  success: boolean
+  message?: string
+  users?: UserDTO[]
+  total?: number
 }
 
-watch(() => route.fullPath, reload)
-const titleList = await useFetch('/api/manage/title/titleList', {
+interface TitleListResponse {
+  success: boolean
+  message?: string
+  titles?: TitleDTO[]
+}
+
+const {
+  data: userListRes,
+  pending: userListPending,
+  errorMessage: userListError,
+  execute: reload,
+} = useApiRequest(() => $fetch<UserListResponse>('/api/manage/userList', {
   method: 'POST',
-  body: JSON.stringify({
-    onlyEnabled: true,
-  }),
+  body: state,
+}), '用户列表加载失败')
+const userList = computed(() => userListRes.value?.users ?? [])
+const total = computed(() => userListRes.value?.total ?? 0)
+
+const {
+  data: titleListRes,
+  pending: titleListPending,
+  errorMessage: titleListError,
+  execute: reloadTitles,
+} = useApiRequest(() => $fetch<TitleListResponse>('/api/manage/title/titleList', {
+    method: 'POST',
+    body: { onlyEnabled: true },
+  }), '头衔列表加载失败')
+
+const pagePending = computed(() => userListPending.value || titleListPending.value)
+const pageError = computed(() => userListError.value || titleListError.value)
+
+async function loadPage() {
+  await Promise.all([reload(), reloadTitles()])
+}
+
+onMounted(loadPage)
+watch(() => route.query.page, () => {
+  state.page = Number.parseInt(String(route.query.page || '1')) || 1
+  void reload()
 })
+
 const titles = computed(() => {
-  return titleList.data.value?.titles.map((x) => {
+  return (titleListRes.value?.titles ?? []).map((x) => {
     return [{
       label: x.title,
       click: () => {
@@ -131,35 +162,29 @@ const titles = computed(() => {
 })
 
 async function assignTitle(title: string) {
-  const res = await $fetch('/api/manage/title/assign', {
-    method: 'POST',
-    body: JSON.stringify({
-      title,
-      uid: selectedUid.value,
-    }),
-  })
-
-  if (res.message) {
-    toast.error(res.message)
-    return
+  try {
+    assertApiSuccess(await $fetch('/api/manage/title/assign', {
+      method: 'POST',
+      body: { title, uid: selectedUid.value },
+    }), '分配头衔失败')
+    await reload()
   }
-  await reload()
+  catch (error) {
+    toast.error(getApiErrorMessage(error, '分配头衔失败'))
+  }
 }
 
 async function removeTitle(userId: number, titleId: number) {
-  const res = await $fetch('/api/manage/title/remove', {
-    method: 'POST',
-    body: JSON.stringify({
-      userId,
-      titleId,
-    }),
-  })
-
-  if (res.message) {
-    toast.error(res.message)
-    return
+  try {
+    assertApiSuccess(await $fetch('/api/manage/title/remove', {
+      method: 'POST',
+      body: { userId, titleId },
+    }), '移除头衔失败')
+    await reload()
   }
-  await reload()
+  catch (error) {
+    toast.error(getApiErrorMessage(error, '移除头衔失败'))
+  }
 }
 
 const sendPointOpen = ref(false)
@@ -191,13 +216,16 @@ async function makePointAction() {
     toast.error('请填写事由')
     return
   }
-  const { success } = await $fetch('/api/manage/member/point', {
-    method: 'POST',
-    body: JSON.stringify(pointActionState),
-  })
-  if (success) {
+  try {
+    assertApiSuccess(await $fetch('/api/manage/member/point', {
+      method: 'POST',
+      body: pointActionState,
+    }), '积分操作失败')
     sendPointOpen.value = false
     await reload()
+  }
+  catch (error) {
+    toast.error(getApiErrorMessage(error, '积分操作失败'))
   }
 }
 </script>
@@ -236,10 +264,11 @@ async function makePointAction() {
         </div>
       </div>
     </template>
-    <UTable
-      :rows="userList" :columns="columns" class="overflow-auto w-full"
-      :ui="{ wrapper: 'w-[300px]', th: { base: 'text-nowrap' } }"
-    >
+    <XManageDataState :pending="pagePending" :error="pageError" @retry="loadPage">
+      <UTable
+        :rows="userList" :columns="columns" class="overflow-auto w-full"
+        :ui="{ wrapper: 'w-[300px]', th: { base: 'text-nowrap' } }"
+      >
       <template #avatarUrl-data="{ row }">
         <NuxtLink :to="`/member/${row.username}`">
           <UAvatar :src="getAvatarUrl(row.avatarUrl!, row.headImg)" size="lg" alt="Avatar" />
@@ -292,7 +321,8 @@ async function makePointAction() {
           <UButton color="white" label="积分调整" @click="openPointAction(row.uid)" />
         </div>
       </template>
-    </UTable>
+      </UTable>
+    </XManageDataState>
     <template #footer>
       <UPagination
         v-if="total > state.size" v-model="state.page" size="sm" :to="(page: number) => ({

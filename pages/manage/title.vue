@@ -109,46 +109,52 @@ const styles = [{
   label: 'primary',
 }]
 
-page.value = Number.parseInt(route.query.page as any as string) || 1
-const { data: titleListRes } = await useFetch('/api/manage/title/titleList', {
+interface TitleListResponse {
+  success: boolean
+  message?: string
+  titles?: TitleDTO[]
+}
+
+const {
+  data: titleListRes,
+  pending,
+  errorMessage,
+  execute: reload,
+} = useApiRequest(() => $fetch<TitleListResponse>('/api/manage/title/titleList', {
   method: 'POST',
-  body: JSON.stringify({
+  body: {
     page: page.value,
     size: size.value,
-  }),
-})
+  },
+}), '头衔列表加载失败')
 
-const titleList = computed(() => titleListRes?.value?.titles as any as TitleDTO[])
+const titleList = computed(() => titleListRes.value?.titles ?? [])
+
+onMounted(reload)
 
 async function saveTitle() {
   if (!saveState.title.trim()) {
     toast.error('请填写完整,头衔必填字段')
     return
   }
-  await $fetch('/api/manage/title/saveTitle', {
-    method: 'POST',
-    body: JSON.stringify(saveState),
-  })
-  isOpen.value = false
-  await reload(page.value)
-  toast.success('保存成功')
+  try {
+    assertApiSuccess(await $fetch('/api/manage/title/saveTitle', {
+      method: 'POST',
+      body: saveState,
+    }), '保存头衔失败')
+    isOpen.value = false
+    await reload()
+    toast.success('保存成功')
+  }
+  catch (error) {
+    toast.error(getApiErrorMessage(error, '保存头衔失败'))
+  }
 }
 
-watch(() => route.fullPath, async () => {
-  const page = Number.parseInt(route.query.page as any as string)
-  await reload(page)
+watch(() => route.query.page, () => {
+  page.value = Number.parseInt(String(route.query.page || '1')) || 1
+  void reload()
 })
-
-async function reload(page: number) {
-  const res = await $fetch('/api/manage/title/titleList', {
-    method: 'POST',
-    body: JSON.stringify({
-      page,
-      size: size.value,
-    }),
-  })
-  titleListRes.value = res
-}
 
 </script>
 
@@ -161,7 +167,8 @@ async function reload(page: number) {
         </UButton>
       </div>
     </template>
-    <UTable :rows="titleList" :columns="columns">
+    <XManageDataState :pending="pending" :error="errorMessage" @retry="reload">
+      <UTable :rows="titleList" :columns="columns">
       <template #status-data="{ row }">
         {{ row.status ? '启用' : '禁用' }}
       </template>
@@ -181,7 +188,8 @@ async function reload(page: number) {
       <template #hot-data="{ row }">
         {{ row.hot ? '是' : '否' }}
       </template>
-    </UTable>
+      </UTable>
+    </XManageDataState>
     <template #footer />
   </UCard>
 

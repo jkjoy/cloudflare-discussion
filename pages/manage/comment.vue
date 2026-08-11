@@ -40,30 +40,43 @@ const columns = [{
 }]
 
 async function doRemove(row: CommentDTO) {
-  await $fetch(`/api/manage/comment/delete?cid=${row.cid}`, {
-    method: 'POST',
-  })
-  await toast.success('操作成功')
-  await reload()
+  try {
+    assertApiSuccess(await $fetch(`/api/manage/comment/delete?cid=${row.cid}`, {
+      method: 'POST',
+    }), '删除评论失败')
+    toast.success('操作成功')
+    await reload()
+  }
+  catch (error) {
+    toast.error(getApiErrorMessage(error, '删除评论失败'))
+  }
 }
 
-const { data: commentListRes } = await useFetch('/api/manage/commentList', {
+interface CommentListResponse {
+  success: boolean
+  message?: string
+  comments?: CommentDTO[]
+  total?: number
+}
+
+const {
+  data: commentListRes,
+  pending,
+  errorMessage,
+  execute: reload,
+} = useApiRequest(() => $fetch<CommentListResponse>('/api/manage/commentList', {
   method: 'POST',
-  body: JSON.stringify(state),
+  body: state,
+}), '评论列表加载失败')
+
+const commentList = computed(() => commentListRes.value?.comments ?? [])
+const total = computed(() => commentListRes.value?.total ?? 0)
+
+onMounted(reload)
+watch(() => route.query.page, () => {
+  state.page = Number.parseInt(String(route.query.page || '1')) || 1
+  void reload()
 })
-
-const commentList = computed(() => commentListRes?.value?.comments as any as CommentDTO[])
-const total = computed(() => commentListRes?.value?.total as number)
-
-async function reload() {
-  const res = await $fetch('/api/manage/commentList', {
-    method: 'POST',
-    body: JSON.stringify(state),
-  })
-  commentListRes.value = res
-}
-
-watch(() => route.fullPath, reload)
 </script>
 
 <template>
@@ -85,7 +98,8 @@ watch(() => route.fullPath, reload)
         </div>
       </div>
     </template>
-    <UTable :rows="commentList" :columns="columns">
+    <XManageDataState :pending="pending" :error="errorMessage" @retry="reload">
+      <UTable :rows="commentList" :columns="columns">
       <template #author.avatarUrl-data="{ row }">
         <NuxtLink :to="`/member/${row.author.username}`">
           <UAvatar :src="getAvatarUrl(row.author.avatarUrl!, row.author.headImg)" size="lg" alt="Avatar" />
@@ -116,7 +130,8 @@ watch(() => route.fullPath, reload)
           </UButton>
         </div>
       </template>
-    </UTable>
+      </UTable>
+    </XManageDataState>
     <template #footer>
       <UPagination
         v-if="total > state.size" v-model="state.page" size="sm" :to="(page: number) => ({

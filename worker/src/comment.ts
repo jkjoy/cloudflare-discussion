@@ -1,6 +1,6 @@
 import type { Env, CurrentUser, UserTitleSummary } from './types'
 import { all, first, queryCount, run } from './db'
-import { json, nowIso, parseJsonArray } from './utils'
+import { getUserLevelByPoint, json, nowIso, parseJsonArray } from './utils'
 import { getUserTitles } from './member'
 import { buildSiteLink } from './utils'
 import { sendTgMessage } from './telegram'

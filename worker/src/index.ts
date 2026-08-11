@@ -1,8 +1,8 @@
-// @ts-expect-error - 构建产物，TS 无法提前识别
+// @ts-ignore - 构建产物在 Nuxt 构建后生成
 import nuxtHandler from '../../.output/server/index.mjs'
 
 import type { CurrentUser, Env, ExecutionContextLike } from './types'
-import { json, readBody, nowIso, getPage, getSize, randomId, sha256Hex, getUserLevelByPoint, normalizeEmail, DAY_MS } from './utils'
+import { json, jsonError, readBody, nowIso, getPage, getSize, randomId, sha256Hex, getUserLevelByPoint, normalizeEmail, DAY_MS } from './utils'
 import { hashPassword } from './auth'
 import { queryPointSum } from './post'
 import { all, first, run, queryCount } from './db'
@@ -17,6 +17,7 @@ import { handleImageAsset, handleImageUpload } from './image'
 import { handleTelegramWebhook } from './telegram'
 import { verifyTurnstile } from './turnstile'
 import { isEmailSendRateLimited, saveEmailCodeRecord, sendResendEmail, buildRegisterEmailHtml, buildResetPasswordEmailHtml } from './email'
+import { buildManageComment } from './manage'
 
 const PUBLIC_API_PATHS = new Set([
   '/api/config',
@@ -45,10 +46,26 @@ export default {
       return handleImageAsset(request, env, url)
     }
     if (url.pathname.startsWith('/api/')) {
-      return handleApi(request, env, url, ctx)
+      try {
+        return await handleApi(request, env, url, ctx)
+      }
+      catch (error) {
+        console.error('API request failed', error)
+        return jsonError('服务器内部错误，请稍后重试', 500)
+      }
     }
 
-    return nuxtHandler.fetch(request, env, ctx)
+    const response = await nuxtHandler.fetch(request, env, ctx)
+    if (response.headers.get('content-type')?.includes('text/html')) {
+      const headers = new Headers(response.headers)
+      headers.set('Cache-Control', 'no-cache, no-store, must-revalidate')
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers,
+      })
+    }
+    return response
   },
 }
 
@@ -56,6 +73,12 @@ async function handleApi(request: Request, env: Env, url: URL, ctx: ExecutionCon
   const pathname = url.pathname
   const method = request.method.toUpperCase()
   const currentUser = shouldResolveCurrentUser(pathname, method) ? await getCurrentUser(request, env) : null
+
+  if (pathname.startsWith('/api/manage/') && !isAdmin(currentUser)) {
+    return currentUser
+      ? jsonError('只有管理员才能访问', 403)
+      : jsonError('登录已过期，请重新登录', 401)
+  }
 
   if (pathname === '/api/config') {
     if (method === 'GET') {
@@ -103,7 +126,7 @@ async function handleApi(request: Request, env: Env, url: URL, ctx: ExecutionCon
 
   if (pathname === '/api/member/profile' && method === 'POST') {
     if (!currentUser) {
-      return json({})
+      return jsonError('登录已过期，请重新登录', 401)
     }
 
     return json(await buildProfile(env, currentUser))
@@ -297,7 +320,7 @@ async function handleApi(request: Request, env: Env, url: URL, ctx: ExecutionCon
   }
 
   if (pathname === '/api/manage/testEmail' && method === 'POST') {
-    return handleTestEmail(request, env, currentUser)
+    return handleTestEmail(env, currentUser)
   }
 
   if (pathname === '/api/imgs/upload' && method === 'POST') {
@@ -328,7 +351,7 @@ async function handleApi(request: Request, env: Env, url: URL, ctx: ExecutionCon
     return handleTelegramWebhook(request, env)
   }
 
-  return json({ success: false, message: '接口不存在' })
+  return jsonError('接口不存在', 404)
 }
 
 function shouldResolveCurrentUser(pathname: string, method: string) {
@@ -1401,13 +1424,13 @@ async function handleSendEmail(request: Request, env: Env) {
   return json({ success: true, emailCodeKey, message: '发送邮件成功' })
 }
 
-async function handleTestEmail(request: Request, env: Env, currentUser: CurrentUser | null) {
+async function handleTestEmail(env: Env, currentUser: CurrentUser | null) {
   if (!isAdmin(currentUser)) {
     return json({ success: false, message: '只有管理员才能访问' })
   }
 
-  const body = await readBody(request)
-  const emailConfig = normalizeEmailConfigWrapper(body.email)
+  const config = await getSysConfig(env)
+  const emailConfig = normalizeEmailConfigWrapper(config.email)
   const emailError = validateEmailConfigWrapper(emailConfig)
   if (emailError) {
     return json({ success: false, message: emailError })
@@ -1423,9 +1446,19 @@ async function handleTestEmail(request: Request, env: Env, currentUser: CurrentU
     '<p>这是一封测试邮件 This is a test email</p>',
   )
   if (!sent.success) {
+    console.error('Email rejected by Resend', {
+      flow: 'TEST',
+      recipient: maskEmailWrapper(emailConfig.to),
+      error: sent.message,
+    })
     return json({ success: false, message: sent.message })
   }
 
+  console.info('Email accepted by Resend', {
+    flow: 'TEST',
+    messageId: sent.id,
+    recipient: maskEmailWrapper(emailConfig.to),
+  })
   return json({ success: true, message: '发送成功' })
 }
 
@@ -1449,6 +1482,9 @@ async function handleSendForgotPasswordEmail(request: Request, env: Env) {
   }
 
   const targetEmail = normalizeEmail(String(target.email || ''))
+  if (!isValidEmailWrapper(targetEmail)) {
+    return json({ success: false, emailCodeKey: '', message: '账号未绑定有效邮箱，请先联系管理员更新邮箱' })
+  }
   const rateLimited = await isEmailSendRateLimited(env, targetEmail, 'RESET_PASSWORD')
   if (rateLimited) {
     return json({ success: false, emailCodeKey: '', message: '不要频繁发送邮件!' })
@@ -1460,6 +1496,11 @@ async function handleSendForgotPasswordEmail(request: Request, env: Env) {
   const html = buildResetPasswordEmailHtml(config, emailCode)
   const sent = await sendResendEmail(config.email, targetEmail, subject, html, emailCodeKey)
   if (!sent.success) {
+    console.error('Email rejected by Resend', {
+      flow: 'RESET_PASSWORD',
+      recipient: maskEmailWrapper(targetEmail),
+      error: sent.message,
+    })
     return json({ success: false, emailCodeKey: '', message: sent.message })
   }
 
@@ -1471,7 +1512,17 @@ async function handleSendForgotPasswordEmail(request: Request, env: Env) {
     validMinutes: 30,
   })
 
-  return json({ success: true, message: '发送邮件成功', emailCodeKey })
+  const maskedEmail = maskEmailWrapper(targetEmail)
+  console.info('Email accepted by Resend', {
+    flow: 'RESET_PASSWORD',
+    messageId: sent.id,
+    recipient: maskedEmail,
+  })
+  return json({
+    success: true,
+    message: `Resend 已接收重置邮件，收件地址 ${maskedEmail}；未收到请检查垃圾邮件或 Resend 投递日志`,
+    emailCodeKey,
+  })
 }
 
 async function handleResetPwd(request: Request, env: Env) {
@@ -1579,6 +1630,12 @@ function isValidEmailWrapper(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
 }
 
+function maskEmailWrapper(value: string) {
+  const [local = '', domain = ''] = normalizeEmail(value).split('@')
+  const visible = local.length > 1 ? local.slice(0, 2) : local.slice(0, 1)
+  return `${visible}***@${domain}`
+}
+
 function validateEmailConfigWrapper(config: any) {
   if (!config.apiKey) {
     return '请先配置 Resend API Key'
@@ -1649,7 +1706,7 @@ async function respondWithEdgeCache(
   buildResponse: () => Promise<Response>,
 ) {
   const cacheKey = new Request(request.url, { method: 'GET' })
-  const cache = caches.default
+  const cache = (caches as CacheStorage & { default: Cache }).default
   const cached = await cache.match(cacheKey)
 
   if (cached) {

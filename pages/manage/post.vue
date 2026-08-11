@@ -43,37 +43,56 @@ const columns = [{
   key: 'actions',
 }]
 
-const { data: postListRes } = await useFetch('/api/manage/post/postList', {
+interface PostListResponse {
+  success: boolean
+  message?: string
+  posts?: PostDTO[]
+  total?: number
+}
+
+const {
+  data: postListRes,
+  pending,
+  errorMessage,
+  execute: reload,
+} = useApiRequest(() => $fetch<PostListResponse>('/api/manage/post/postList', {
   method: 'POST',
-  body: JSON.stringify(state),
-})
+  body: state,
+}), '帖子列表加载失败')
+
 async function doRemove(row: PostDTO) {
-  await $fetch(`/api/manage/post/delete?pid=${row.pid}`, {
-    method: 'POST',
-  })
-  await toast.success('操作成功')
-  await reload()
+  try {
+    assertApiSuccess(await $fetch(`/api/manage/post/delete?pid=${row.pid}`, {
+      method: 'POST',
+    }), '删除帖子失败')
+    toast.success('操作成功')
+    await reload()
+  }
+  catch (error) {
+    toast.error(getApiErrorMessage(error, '删除帖子失败'))
+  }
 }
 async function togglePin(row: PostDTO) {
-  await $fetch(`/api/manage/post/togglePin?pid=${row.pid}`, {
-    method: 'POST',
-  })
-  await toast.success('操作成功')
-  await reload()
+  try {
+    assertApiSuccess(await $fetch(`/api/manage/post/togglePin?pid=${row.pid}`, {
+      method: 'POST',
+    }), '更新置顶状态失败')
+    toast.success('操作成功')
+    await reload()
+  }
+  catch (error) {
+    toast.error(getApiErrorMessage(error, '更新置顶状态失败'))
+  }
 }
 
-const postList = computed(() => postListRes?.value?.posts as any as PostDTO[])
-const total = computed(() => postListRes?.value?.total as number)
+const postList = computed(() => postListRes.value?.posts ?? [])
+const total = computed(() => postListRes.value?.total ?? 0)
 
-async function reload() {
-  const res = await $fetch('/api/manage/post/postList', {
-    method: 'POST',
-    body: JSON.stringify(state),
-  })
-  postListRes.value = res
-}
-
-watch(() => route.fullPath, reload)
+onMounted(reload)
+watch(() => route.query.page, () => {
+  state.page = Number.parseInt(String(route.query.page || '1')) || 1
+  void reload()
+})
 </script>
 
 <template>
@@ -90,7 +109,8 @@ watch(() => route.fullPath, reload)
         </div>
       </div>
     </template>
-    <UTable :rows="postList" :columns="columns">
+    <XManageDataState :pending="pending" :error="errorMessage" @retry="reload">
+      <UTable :rows="postList" :columns="columns">
       <template #author.avatarUrl-data="{ row }">
         <NuxtLink :to="`/member/${row.author.username}`">
           <UAvatar :src="getAvatarUrl(row.author.avatarUrl!, row.author.headImg)" size="lg" alt="Avatar" />
@@ -129,7 +149,8 @@ watch(() => route.fullPath, reload)
           </UButton>
         </div>
       </template>
-    </UTable>
+      </UTable>
+    </XManageDataState>
     <template #footer>
       <UPagination
         v-if="total > state.size" v-model="state.page" size="sm" :to="(page: number) => ({
